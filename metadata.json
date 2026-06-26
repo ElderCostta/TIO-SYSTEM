@@ -1,0 +1,6 @@
+{
+  "name": "TIO System",
+  "description": "Formulário digital inteligente para registrar, organizar e acompanhar reuniões e encaminhamentos entre órgãos da rede de proteção social.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
