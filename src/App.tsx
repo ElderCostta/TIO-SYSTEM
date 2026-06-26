@@ -24,7 +24,8 @@ import {
   RefreshCw,
   LogOut,
   Shield,
-  Download
+  Download,
+  ExternalLink
 } from "lucide-react";
 
 export default function App() {
@@ -51,6 +52,15 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
   const [isInstallable, setIsInstallable] = React.useState<boolean>(false);
   const [showPwaModal, setShowPwaModal] = React.useState<boolean>(false);
+  const [isInIframe, setIsInIframe] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    try {
+      setIsInIframe(window.self !== window.top);
+    } catch (e) {
+      setIsInIframe(true);
+    }
+  }, []);
 
   React.useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -305,6 +315,24 @@ export default function App() {
               </div>
 
               <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
+                {isInIframe && (
+                  <div className="p-3 bg-amber-50/80 text-amber-900 rounded-2xl border border-amber-200/60 text-[11px] space-y-2 mb-2 font-medium">
+                    <p className="font-extrabold flex items-center gap-1.5 text-amber-800 text-[10px] uppercase tracking-wider">
+                      ⚠️ Modo de Prévia Ativo (Iframe)
+                    </p>
+                    <p className="leading-normal">
+                      O navegador bloqueia a instalação direta de aplicativos PWA dentro de painéis de visualização integrada (como este iframe do editor).
+                    </p>
+                    <button
+                      onClick={() => window.open(window.location.href, "_blank")}
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                      id="btn-open-new-tab-pwa-login"
+                    >
+                      <ExternalLink size={13} className="shrink-0" />
+                      <span>Abrir App em Nova Aba para Instalar</span>
+                    </button>
+                  </div>
+                )}
                 <p>
                   O <strong>TIOSYSTEM</strong> é um aplicativo PWA (Progressive Web App). Você pode instalá-lo diretamente no seu celular ou computador sem precisar de loja de aplicativos!
                 </p>
@@ -851,6 +879,24 @@ export default function App() {
             </div>
 
             <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
+              {isInIframe && (
+                <div className="p-3 bg-amber-50/80 text-amber-900 rounded-2xl border border-amber-200/60 text-[11px] space-y-2 mb-2 font-medium">
+                  <p className="font-extrabold flex items-center gap-1.5 text-amber-800 text-[10px] uppercase tracking-wider">
+                    ⚠️ Modo de Prévia Ativo (Iframe)
+                  </p>
+                  <p className="leading-normal">
+                    O navegador bloqueia a instalação direta de aplicativos PWA dentro de painéis de visualização integrada (como este iframe do editor).
+                  </p>
+                  <button
+                    onClick={() => window.open(window.location.href, "_blank")}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                    id="btn-open-new-tab-pwa"
+                  >
+                    <ExternalLink size={13} className="shrink-0" />
+                    <span>Abrir App em Nova Aba para Instalar</span>
+                  </button>
+                </div>
+              )}
               <p>
                 O <strong>TIOSYSTEM</strong> é um aplicativo PWA (Progressive Web App). Você pode instalá-lo diretamente no seu celular ou computador sem precisar de loja de aplicativos!
               </p>
