@@ -24,8 +24,7 @@ import {
   RefreshCw,
   LogOut,
   Shield,
-  Download,
-  ExternalLink
+  Trash2
 } from "lucide-react";
 
 export default function App() {
@@ -48,65 +47,6 @@ export default function App() {
     localStorage.setItem("tio_system_safe_mode", String(newValue));
   };
 
-  // PWA Install Prompt & Instructions States
-  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
-  const [isInstallable, setIsInstallable] = React.useState<boolean>(false);
-  const [showPwaModal, setShowPwaModal] = React.useState<boolean>(false);
-  const [isInIframe, setIsInIframe] = React.useState<boolean>(false);
-
-  React.useEffect(() => {
-    try {
-      setIsInIframe(window.self !== window.top);
-    } catch (e) {
-      setIsInIframe(true);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent standard browser direct trigger
-      e.preventDefault();
-      // Store event
-      setDeferredPrompt(e);
-      setIsInstallable(true);
-      
-      // Notify the system/logs
-      console.log("PWA beforeinstallprompt disparado e capturado.");
-    };
-
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    window.addEventListener("appinstalled", () => {
-      setIsInstallable(false);
-      setDeferredPrompt(null);
-      
-      // Log notification
-      const newNotif = {
-        id: `pwa-${Date.now()}`,
-        text: "TIOSYSTEM instalado com sucesso no seu dispositivo!",
-        time: "Agora"
-      };
-      setNotifications(prev => [newNotif, ...prev.slice(0, 4)]);
-    });
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    };
-  }, []);
-
-  const handleInstallPwa = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`Escolha de instalação PWA do usuário: ${outcome}`);
-      setDeferredPrompt(null);
-      setIsInstallable(false);
-    } else {
-      // If prompt isn't supported/fired, show the elegant guide dialog
-      setShowPwaModal(true);
-    }
-  };
-
   // Simulated Login Session
   const [session, setSession] = React.useState<UserSession>({
     organ: "Conselho Tutelar",
@@ -119,6 +59,9 @@ export default function App() {
   const [filterOrgan, setFilterOrgan] = React.useState<string>("Todos");
   const [filterStatus, setFilterStatus] = React.useState<string>("Todos");
   const [filterRisk, setFilterRisk] = React.useState<string>("Todos");
+  const [filterBairro, setFilterBairro] = React.useState<string>("Todos");
+  const [filterTipoViolacao, setFilterTipoViolacao] = React.useState<string>("Todos");
+  const [filterDateRange, setFilterDateRange] = React.useState<string>("Todos");
 
   // Notifications State
   const [notifications, setNotifications] = React.useState<Array<{ id: string; text: string; time: string }>>([
@@ -249,6 +192,26 @@ export default function App() {
     saveCasesToStorage(updated);
   };
 
+  const handleDeleteCase = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Previne abrir o detalhamento do caso
+    if (window.confirm("Deseja realmente apagar este caso do sistema? Esta ação é irreversível.")) {
+      const deletedCase = cases.find(c => c.id === id);
+      const updated = cases.filter(c => c.id !== id);
+      saveCasesToStorage(updated);
+
+      const newNotif = {
+        id: Date.now().toString(),
+        text: `Caso "${deletedCase?.name || 'desconhecido'}" excluído com sucesso do sistema.`,
+        time: "Agora"
+      };
+      setNotifications([newNotif, ...notifications.slice(0, 4)]);
+
+      if (selectedCaseId === id) {
+        setSelectedCaseId(null);
+      }
+    }
+  };
+
   const handleResetData = () => {
     saveCasesToStorage(INITIAL_CASES);
     setSelectedCaseId(null);
@@ -264,6 +227,14 @@ export default function App() {
   };
 
   // 5. Calculations / Filtering
+  const uniqueBairros = Array.from(
+    new Set(cases.map(c => c.bairro).filter(Boolean))
+  ) as string[];
+
+  const uniqueTiposViolacao = Array.from(
+    new Set(cases.map(c => c.tipoViolacao).filter(Boolean))
+  ) as string[];
+
   const filteredCases = cases.filter(c => {
     const matchesSearch = 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -283,109 +254,32 @@ export default function App() {
       filterRisk === "Todos" || 
       c.nivelRiscoAI === filterRisk;
 
-    return matchesSearch && matchesOrgan && matchesStatus && matchesRisk;
+    const matchesBairro = 
+      filterBairro === "Todos" || 
+      (c.bairro && c.bairro === filterBairro);
+
+    const matchesTipoViolacao = 
+      filterTipoViolacao === "Todos" || 
+      (c.tipoViolacao && c.tipoViolacao === filterTipoViolacao);
+
+    const matchesDateRange = () => {
+      if (filterDateRange === "Todos") return true;
+      const caseTime = new Date(c.dataCriacao || Date.now()).getTime();
+      const now = Date.now();
+      const diffDays = (now - caseTime) / (1000 * 60 * 60 * 24);
+      if (filterDateRange === "7d") return diffDays <= 7;
+      if (filterDateRange === "30d") return diffDays <= 30;
+      if (filterDateRange === "365d") return diffDays <= 365;
+      return true;
+    };
+
+    return matchesSearch && matchesOrgan && matchesStatus && matchesRisk && matchesBairro && matchesTipoViolacao && matchesDateRange();
   });
 
   const selectedCase = cases.find(c => c.id === selectedCaseId);
 
   if (!isLoggedIn) {
-    return (
-      <>
-        <Login onLoginSuccess={handleLoginSuccess} onInstallPwa={handleInstallPwa} />
-        {showPwaModal && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200" id="pwa-guide-modal-login">
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl p-6 max-w-md w-full space-y-5 animate-in zoom-in-95 duration-200">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                    <Download size={18} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm font-sans text-left">Como Instalar o TIOSYSTEM</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-left">Atalho Seguro na sua Tela</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowPwaModal(false)}
-                  className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-                  id="btn-close-pwa-modal-login"
-                >
-                  &times;
-                </button>
-              </div>
-
-              <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
-                {isInIframe && (
-                  <div className="p-3 bg-amber-50/80 text-amber-900 rounded-2xl border border-amber-200/60 text-[11px] space-y-2 mb-2 font-medium">
-                    <p className="font-extrabold flex items-center gap-1.5 text-amber-800 text-[10px] uppercase tracking-wider">
-                      ⚠️ Modo de Prévia Ativo (Iframe)
-                    </p>
-                    <p className="leading-normal">
-                      O navegador bloqueia a instalação direta de aplicativos PWA dentro de painéis de visualização integrada (como este iframe do editor).
-                    </p>
-                    <button
-                      onClick={() => window.open(window.location.href, "_blank")}
-                      className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                      id="btn-open-new-tab-pwa-login"
-                    >
-                      <ExternalLink size={13} className="shrink-0" />
-                      <span>Abrir App em Nova Aba para Instalar</span>
-                    </button>
-                  </div>
-                )}
-                <p>
-                  O <strong>TIOSYSTEM</strong> é um aplicativo PWA (Progressive Web App). Você pode instalá-lo diretamente no seu celular ou computador sem precisar de loja de aplicativos!
-                </p>
-
-                <div className="space-y-3 pt-2">
-                  {/* Desktop */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                    <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                      💻 Computador (Desktop)
-                    </h4>
-                    <p>
-                      Clique no ícone de <strong>instalação</strong> (uma setinha para baixo ou monitor com sinal de mais) na barra de endereços do seu navegador (Chrome, Edge, Opera) no topo direito e confirme a instalação.
-                    </p>
-                  </div>
-
-                  {/* Android */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                    <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                      🤖 Celular Android (Chrome)
-                    </h4>
-                    <p>
-                      Toque no menu de <strong>três pontos</strong> do navegador no topo direito, selecione <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong> e confirme.
-                    </p>
-                  </div>
-
-                  {/* iPhone / iPad */}
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                    <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                      🍎 iPhone / iPad (Safari)
-                    </h4>
-                    <p>
-                      Toque no botão de <strong>Compartilhar</strong> <span className="font-bold text-slate-700">"↑"</span> na barra inferior do Safari, role para baixo e selecione <strong>"Adicionar à Tela de Início"</strong>.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-[10px] text-slate-400 font-medium bg-indigo-50/50 border border-indigo-100/40 p-2.5 rounded-xl text-center">
-                  🔒 Aplicativo Seguro • Não ocupa espaço de armazenamento significante • Atualizações automáticas em segundo plano.
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowPwaModal(false)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
-                id="btn-understand-pwa-login"
-              >
-                Entendi
-              </button>
-            </div>
-          </div>
-        )}
-      </>
-    );
+    return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -520,18 +414,6 @@ export default function App() {
             )}
           </div>
 
-          {/* PWA Install Button */}
-          <button
-            onClick={handleInstallPwa}
-            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-sm rounded-xl transition-all flex items-center gap-2 font-bold text-xs select-none cursor-pointer"
-            id="header-install-pwa"
-            title="Instalar TIOSYSTEM no seu dispositivo (Celular ou Computador)"
-          >
-            <Download size={13} className="text-indigo-600 animate-bounce" />
-            <span className="hidden md:inline">Instalar App</span>
-            <span className="md:hidden">Instalar</span>
-          </button>
-
           {/* Toggle LGPD Safe Mode / Screen-Shield */}
           <button
             onClick={toggleSafeMode}
@@ -655,7 +537,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-2">
                     
                     {/* Input search */}
                     <div className="relative">
@@ -720,6 +602,54 @@ export default function App() {
                       </select>
                     </div>
 
+                    {/* Filter Bairro */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-3.5 py-1 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase">Bairro:</span>
+                      <select
+                        value={filterBairro}
+                        onChange={e => setFilterBairro(e.target.value)}
+                        className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none flex-1 cursor-pointer"
+                        id="filter-bairro-select"
+                      >
+                        <option value="Todos">Todos os Bairros</option>
+                        {uniqueBairros.map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filter Tipo Violacao */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-3.5 py-1 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase">Violação:</span>
+                      <select
+                        value={filterTipoViolacao}
+                        onChange={e => setFilterTipoViolacao(e.target.value)}
+                        className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none flex-1 cursor-pointer"
+                        id="filter-tipo-violacao-select"
+                      >
+                        <option value="Todos">Todas as Violações</option>
+                        {uniqueTiposViolacao.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Filter Date Range */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 px-3.5 py-1 rounded-xl border border-slate-200">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase">Cadastro:</span>
+                      <select
+                        value={filterDateRange}
+                        onChange={e => setFilterDateRange(e.target.value)}
+                        className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none flex-1 cursor-pointer"
+                        id="filter-date-select"
+                      >
+                        <option value="Todos">Qualquer data</option>
+                        <option value="7d">Últimos 7 dias</option>
+                        <option value="30d">Últimos 30 dias</option>
+                        <option value="365d">Último ano</option>
+                      </select>
+                    </div>
+
                   </div>
                 </div>
 
@@ -765,12 +695,30 @@ export default function App() {
                                     )}
                                   </h3>
                                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{c.age} anos · {c.sigilo}</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded-md uppercase tracking-wide">
+                                      {c.bairro || "Centro"}
+                                    </span>
+                                    <span className="text-[9px] font-extrabold px-1.5 py-0.5 bg-indigo-50/70 text-indigo-700 rounded-md uppercase tracking-wide">
+                                      {c.tipoViolacao || "Geral"}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
 
-                              <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold border ${currentRiskColor}`}>
-                                {c.nivelRiscoAI || "Risco N/D"}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold border ${currentRiskColor}`}>
+                                  {c.nivelRiscoAI || "Risco N/D"}
+                                </span>
+                                <button
+                                  onClick={(e) => handleDeleteCase(c.id, e)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                  title="Apagar caso do sistema"
+                                  id={`btn-delete-case-${c.id}`}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
 
                             {/* Situation */}
@@ -855,99 +803,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* PWA GUIDE MODAL */}
-      {showPwaModal && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200" id="pwa-guide-modal">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl p-6 max-w-md w-full space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <Download size={18} />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm font-sans text-left">Como Instalar o TIOSYSTEM</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-left">Atalho Seguro na sua Tela</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setShowPwaModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-xl font-bold p-1 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-                id="btn-close-pwa-modal"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs text-slate-600 leading-relaxed text-left">
-              {isInIframe && (
-                <div className="p-3 bg-amber-50/80 text-amber-900 rounded-2xl border border-amber-200/60 text-[11px] space-y-2 mb-2 font-medium">
-                  <p className="font-extrabold flex items-center gap-1.5 text-amber-800 text-[10px] uppercase tracking-wider">
-                    ⚠️ Modo de Prévia Ativo (Iframe)
-                  </p>
-                  <p className="leading-normal">
-                    O navegador bloqueia a instalação direta de aplicativos PWA dentro de painéis de visualização integrada (como este iframe do editor).
-                  </p>
-                  <button
-                    onClick={() => window.open(window.location.href, "_blank")}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-3 rounded-xl text-xs cursor-pointer transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-                    id="btn-open-new-tab-pwa"
-                  >
-                    <ExternalLink size={13} className="shrink-0" />
-                    <span>Abrir App em Nova Aba para Instalar</span>
-                  </button>
-                </div>
-              )}
-              <p>
-                O <strong>TIOSYSTEM</strong> é um aplicativo PWA (Progressive Web App). Você pode instalá-lo diretamente no seu celular ou computador sem precisar de loja de aplicativos!
-              </p>
-
-              <div className="space-y-3 pt-2">
-                {/* Desktop */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                  <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                    💻 Computador (Desktop)
-                  </h4>
-                  <p>
-                    Clique no ícone de <strong>instalação</strong> (uma setinha para baixo ou monitor com sinal de mais) na barra de endereços do seu navegador (Chrome, Edge, Opera) no topo direito e confirme a instalação.
-                  </p>
-                </div>
-
-                {/* Android */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                  <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                    🤖 Celular Android (Chrome)
-                  </h4>
-                  <p>
-                    Toque no menu de <strong>três pontos</strong> do navegador no topo direito, selecione <strong>"Instalar aplicativo"</strong> ou <strong>"Adicionar à tela inicial"</strong> e confirme.
-                  </p>
-                </div>
-
-                {/* iPhone / iPad */}
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-150/50 space-y-1">
-                  <h4 className="font-extrabold text-slate-800 flex items-center gap-1.5 uppercase tracking-wider text-[9px]">
-                    🍎 iPhone / iPad (Safari)
-                  </h4>
-                  <p>
-                    Toque no botão de <strong>Compartilhar</strong> <span className="font-bold text-slate-700">"↑"</span> na barra inferior do Safari, role para baixo e selecione <strong>"Adicionar à Tela de Início"</strong>.
-                  </p>
-                </div>
-              </div>
-
-              <div className="text-[10px] text-slate-400 font-medium bg-indigo-50/50 border border-indigo-100/40 p-2.5 rounded-xl text-center">
-                🔒 Aplicativo Seguro • Não ocupa espaço de armazenamento significante • Atualizações automáticas em segundo plano.
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowPwaModal(false)}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
-              id="btn-understand-pwa"
-            >
-              Entendi
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

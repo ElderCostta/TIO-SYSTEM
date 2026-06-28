@@ -40,9 +40,39 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   // Tabs within details
   const [activeSubTab, setActiveSubTab] = React.useState<"geral" | "timeline" | "encaminhamentos" | "atas" | "anexos">("geral");
 
+  // Editing Case state variables
+  const [isEditingCase, setIsEditingCase] = React.useState(false);
+  const [editName, setEditName] = React.useState(caseItem.name);
+  const [editAge, setEditAge] = React.useState(caseItem.age);
+  const [editAddress, setEditAddress] = React.useState(caseItem.address);
+  const [editBairro, setEditBairro] = React.useState(caseItem.bairro || "");
+  const [editTipoViolacao, setEditTipoViolacao] = React.useState(caseItem.tipoViolacao || "");
+  const [editSigilo, setEditSigilo] = React.useState(caseItem.sigilo);
+  const [editSituation, setEditSituation] = React.useState(caseItem.situation);
+  const [editSituationDetails, setEditSituationDetails] = React.useState(caseItem.situationDetails);
+  const [editUrgentDemands, setEditUrgentDemands] = React.useState(caseItem.urgentDemands || "");
+
+  React.useEffect(() => {
+    setEditName(caseItem.name);
+    setEditAge(caseItem.age);
+    setEditAddress(caseItem.address);
+    setEditBairro(caseItem.bairro || "");
+    setEditTipoViolacao(caseItem.tipoViolacao || "");
+    setEditSigilo(caseItem.sigilo);
+    setEditSituation(caseItem.situation);
+    setEditSituationDetails(caseItem.situationDetails);
+    setEditUrgentDemands(caseItem.urgentDemands || "");
+    setIsEditingCase(false); // Reset edit state when switching cases
+  }, [caseItem.id]);
+
   // Local input states for adding details
   const [newNoteTitle, setNewNoteTitle] = React.useState("");
   const [newNoteDesc, setNewNoteDesc] = React.useState("");
+
+  // Action Plan states
+  const [newActionText, setNewActionText] = React.useState("");
+  const [newActionResp, setNewActionResp] = React.useState("");
+  const [aiActionsLoading, setAiActionsLoading] = React.useState(false);
   
   // Local input states for manual referrals
   const [manualAction, setManualAction] = React.useState("");
@@ -421,6 +451,130 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     onUpdateCase(updatedCase);
   };
 
+  const handleSaveCaseEdits = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim() || !editSituation.trim()) return;
+
+    const newEvent: TimelineEvent = {
+      id: `ev-edit-${Date.now()}`,
+      date: new Date().toISOString(),
+      organ: activeSession.organ,
+      user: activeSession.username,
+      title: "Ficha do Caso Atualizada",
+      description: `A ficha de informações cadastrais gerais do caso foi atualizada por ${activeSession.username} (${activeSession.organ}).`,
+      type: "atualizacao_status"
+    };
+
+    const updatedCase: Case = {
+      ...caseItem,
+      name: editName,
+      age: Number(editAge),
+      address: editAddress,
+      bairro: editBairro,
+      tipoViolacao: editTipoViolacao,
+      sigilo: editSigilo,
+      situation: editSituation,
+      situationDetails: editSituationDetails,
+      urgentDemands: editUrgentDemands,
+      timeline: [...caseItem.timeline, newEvent]
+    };
+
+    onUpdateCase(updatedCase);
+    setIsEditingCase(false);
+  };
+
+  const handleAddActionPlanItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newActionText.trim() || !newActionResp.trim()) return;
+
+    const newItem = {
+      id: `act-${Date.now()}`,
+      acao: newActionText.trim(),
+      status: "Pendente" as const,
+      responsavel: newActionResp.trim(),
+      dataCriacao: new Date().toISOString()
+    };
+
+    const updatedCase: Case = {
+      ...caseItem,
+      planoAcao: [...(caseItem.planoAcao || []), newItem]
+    };
+
+    onUpdateCase(updatedCase);
+    setNewActionText("");
+    setNewActionResp("");
+  };
+
+  const handleToggleActionStatus = (actionId: string) => {
+    const updatedPlan = (caseItem.planoAcao || []).map(item => {
+      if (item.id === actionId) {
+        return {
+          ...item,
+          status: item.status === "Concluído" ? ("Pendente" as const) : ("Concluído" as const)
+        };
+      }
+      return item;
+    });
+
+    const updatedCase: Case = {
+      ...caseItem,
+      planoAcao: updatedPlan
+    };
+
+    onUpdateCase(updatedCase);
+  };
+
+  const handleDeleteActionItem = (actionId: string) => {
+    const updatedPlan = (caseItem.planoAcao || []).filter(item => item.id !== actionId);
+    
+    const updatedCase: Case = {
+      ...caseItem,
+      planoAcao: updatedPlan
+    };
+
+    onUpdateCase(updatedCase);
+  };
+
+  const handleSuggestAiActions = async () => {
+    setAiActionsLoading(true);
+    try {
+      const response = await fetch("/api/gemini/suggest-actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: caseItem.name,
+          age: caseItem.age,
+          situation: caseItem.situation,
+          situationDetails: caseItem.situationDetails,
+          urgentDemands: caseItem.urgentDemands
+        })
+      });
+
+      if (!response.ok) throw new Error("Erro de conexão");
+      const data = await response.json();
+      if (data.suggestions && Array.isArray(data.suggestions)) {
+        const newItems = data.suggestions.map((s: any, idx: number) => ({
+          id: `ai-act-${Date.now()}-${idx}`,
+          acao: s.acao,
+          status: "Pendente" as const,
+          responsavel: s.orgaoResponsavel || "Não especificado",
+          dataCriacao: new Date().toISOString()
+        }));
+
+        const updatedCase: Case = {
+          ...caseItem,
+          planoAcao: [...(caseItem.planoAcao || []), ...newItems]
+        };
+        onUpdateCase(updatedCase);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível gerar sugestões via IA neste momento.");
+    } finally {
+      setAiActionsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8" id="case-workspace">
       
@@ -613,53 +767,343 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
         {/* TAB 1: GERAL (FICHA DO CASO) */}
         {activeSubTab === "geral" && (
           <div className="space-y-8" id="subtab-geral">
-            
-            {/* Situation details */}
-            <div className="space-y-4">
-              <h3 className="font-sans text-lg font-bold text-slate-900 border-b border-slate-50 pb-2">Resumo da Situação</h3>
-              <p className="text-slate-700 text-sm leading-relaxed font-medium bg-slate-50 p-4 rounded-xl border border-slate-100">
-                {caseItem.situation}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
-              <div className="space-y-3">
-                <h3 className="font-sans text-md font-bold text-slate-800 flex items-center gap-2">
-                  <FileText size={16} className="text-slate-400" />
-                  Relato e Histórico Detalhado
-                </h3>
-                <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line bg-white border border-slate-100 p-5 rounded-2xl shadow-inner min-h-[150px]">
-                  {caseItem.situationDetails || "Sem detalhes adicionais informados."}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="font-sans text-md font-bold text-slate-800 flex items-center gap-2">
-                  <ShieldAlert size={16} className="text-rose-400" />
-                  Demandas Urgentes Pactuadas
-                </h3>
-                <p className="text-rose-950 text-sm leading-relaxed whitespace-pre-line bg-rose-50/20 border border-rose-100/40 p-5 rounded-2xl min-h-[150px]">
-                  {caseItem.urgentDemands || "Nenhuma demanda urgente listada."}
-                </p>
-              </div>
-            </div>
-
-            {/* AI vulnerabilities section */}
-            {caseItem.vulnerabilidadesAI && caseItem.vulnerabilidadesAI.length > 0 && (
-              <div className="pt-4 border-t border-slate-100 space-y-3">
-                <h3 className="font-sans text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-indigo-600 animate-spin" />
-                  Fatores de Risco e Vulnerabilidades Mapeados por IA
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {caseItem.vulnerabilidadesAI.map((vul, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl text-xs font-semibold text-slate-700 transition-colors">
-                      <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                      {vul}
-                    </span>
-                  ))}
+            {isEditingCase ? (
+              <form onSubmit={handleSaveCaseEdits} className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-sans text-lg font-bold text-slate-900">Editar Ficha Cadastral</h3>
+                    <p className="text-xs text-slate-500">Atualize as informações gerais e salve para registrar as alterações na linha do tempo.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCase(false)}
+                      className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 border border-slate-200 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition-all cursor-pointer"
+                    >
+                      Salvar Alterações
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nome ou Iniciais</label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Idade</label>
+                    <input
+                      type="number"
+                      value={editAge}
+                      onChange={e => setEditAge(Number(e.target.value))}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Endereço</label>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={e => setEditAddress(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nível de Sigilo</label>
+                    <select
+                      value={editSigilo}
+                      onChange={e => setEditSigilo(e.target.value as any)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm font-semibold focus:outline-none transition-all"
+                    >
+                      <option value="Público">Público</option>
+                      <option value="Sigiloso">Sigiloso</option>
+                      <option value="Restrito">Restrito</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bairro / Localidade</label>
+                    <input
+                      type="text"
+                      value={editBairro}
+                      onChange={e => setEditBairro(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo de Violação</label>
+                    <input
+                      type="text"
+                      value={editTipoViolacao}
+                      onChange={e => setEditTipoViolacao(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Resumo da Situação</label>
+                  <input
+                    type="text"
+                    value={editSituation}
+                    onChange={e => setEditSituation(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Relato e Histórico Detalhado</label>
+                    <textarea
+                      rows={5}
+                      value={editSituationDetails}
+                      onChange={e => setEditSituationDetails(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all resize-none font-sans"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Demandas Urgentes Pactuadas</label>
+                    <textarea
+                      rows={5}
+                      value={editUrgentDemands}
+                      onChange={e => setEditUrgentDemands(e.target.value)}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all resize-none font-sans"
+                    />
+                  </div>
+                </div>
+              </form>
+            ) : (
+              <>
+                {/* Read-only layout */}
+                <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+                  <div className="space-y-1">
+                    <h3 className="font-sans text-lg font-bold text-slate-900">Resumo da Situação</h3>
+                    <p className="text-xs text-slate-500">Natureza principal: <span className="font-semibold text-slate-800">{caseItem.tipoViolacao || "Geral"}</span> | Bairro: <span className="font-semibold text-slate-800">{caseItem.bairro || "Não cadastrado"}</span></p>
+                  </div>
+                  {activeSession.role !== "Visualizar" && (
+                    <button
+                      onClick={() => setIsEditingCase(true)}
+                      className="px-4 py-2 text-xs font-bold text-indigo-600 hover:text-white border border-indigo-200 hover:bg-indigo-600 rounded-xl transition-all cursor-pointer shadow-sm"
+                      id="btn-edit-case-details"
+                    >
+                      Editar Ficha
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-slate-700 text-sm leading-relaxed font-medium bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  {caseItem.situation}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+                  <div className="space-y-3">
+                    <h3 className="font-sans text-md font-bold text-slate-800 flex items-center gap-2">
+                      <FileText size={16} className="text-slate-400" />
+                      Relato e Histórico Detalhado
+                    </h3>
+                    <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line bg-white border border-slate-100 p-5 rounded-2xl shadow-inner min-h-[150px]">
+                      {caseItem.situationDetails || "Sem detalhes adicionais informados."}
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="font-sans text-md font-bold text-slate-800 flex items-center gap-2">
+                      <ShieldAlert size={16} className="text-rose-400" />
+                      Demandas Urgentes Pactuadas
+                    </h3>
+                    <p className="text-rose-950 text-sm leading-relaxed whitespace-pre-line bg-rose-50/20 border border-rose-100/40 p-5 rounded-2xl min-h-[150px]">
+                      {caseItem.urgentDemands || "Nenhuma demanda urgente listada."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI vulnerabilities section */}
+                {caseItem.vulnerabilidadesAI && caseItem.vulnerabilidadesAI.length > 0 && (
+                  <div className="pt-4 border-t border-slate-100 space-y-3">
+                    <h3 className="font-sans text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-indigo-600 animate-spin" />
+                      Fatores de Risco e Vulnerabilidades Mapeados por IA
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {caseItem.vulnerabilidadesAI.map((vul, idx) => (
+                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl text-xs font-semibold text-slate-700 transition-colors">
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                          {vul}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PLANO DE AÇÃO DO CASO (Priority Advanced Differential) */}
+                <div className="pt-6 mt-6 border-t border-slate-100 space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="font-sans text-md font-bold text-slate-800 flex items-center gap-2">
+                        <UserCheck size={18} className="text-indigo-600" />
+                        Plano de Ação Intersetorial do Caso
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Metas pactuadas, responsáveis diretos e andamento das providências.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {activeSession.role !== "Visualizar" && (
+                        <button
+                          type="button"
+                          onClick={handleSuggestAiActions}
+                          disabled={aiActionsLoading}
+                          className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all disabled:opacity-60 cursor-pointer"
+                        >
+                          {aiActionsLoading ? (
+                            <span className="inline-block w-3 h-3 border-2 border-indigo-700 border-t-transparent rounded-full animate-spin"></span>
+                          ) : (
+                            <Sparkles size={13} />
+                          )}
+                          IA Gerar Recomendações de Ação
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  {caseItem.planoAcao && caseItem.planoAcao.length > 0 && (
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between gap-4">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs font-semibold text-slate-500">
+                          <span>Metas Concluídas</span>
+                          <span className="font-bold text-slate-800">
+                            {caseItem.planoAcao.filter(item => item.status === "Concluído").length} de {caseItem.planoAcao.length}
+                          </span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500 transition-all duration-500" 
+                            style={{ 
+                              width: `${Math.round((caseItem.planoAcao.filter(item => item.status === "Concluído").length / caseItem.planoAcao.length) * 100)}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* List of actions */}
+                  <div className="space-y-2.5">
+                    {caseItem.planoAcao && caseItem.planoAcao.length > 0 ? (
+                      caseItem.planoAcao.map(item => (
+                        <div 
+                          key={item.id} 
+                          className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                            item.status === "Concluído" 
+                              ? "bg-emerald-50/10 border-emerald-100 text-slate-500" 
+                              : "bg-white border-slate-100 shadow-sm"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => activeSession.role !== "Visualizar" && handleToggleActionStatus(item.id)}
+                              disabled={activeSession.role === "Visualizar"}
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
+                                item.status === "Concluído"
+                                  ? "bg-emerald-500 border-emerald-500 text-white"
+                                  : "border-slate-300 hover:border-indigo-500"
+                              } ${activeSession.role !== "Visualizar" ? "cursor-pointer" : ""}`}
+                            >
+                              {item.status === "Concluído" && <Check size={12} strokeWidth={3} />}
+                            </button>
+                            <div className="min-w-0">
+                              <p className={`text-sm font-semibold text-slate-800 ${item.status === "Concluído" ? "line-through text-slate-400 font-medium" : ""}`}>
+                                {item.acao}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Responsável:</span>
+                                <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                                  item.status === "Concluído" ? "bg-slate-100 text-slate-400" : "bg-indigo-50 text-indigo-700"
+                                }`}>
+                                  {item.responsavel}
+                                </span>
+                                <span className="text-[10px] text-slate-400">· Criado em {new Date(item.dataCriacao).toLocaleDateString("pt-BR")}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {activeSession.role !== "Visualizar" && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteActionItem(item.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer shrink-0 ml-4"
+                              title="Excluir do plano"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 border-2 border-dashed border-slate-150 rounded-2xl bg-slate-50/50">
+                        <UserCheck size={28} className="text-slate-300 mx-auto mb-1.5 stroke-1" />
+                        <p className="text-xs text-slate-500 font-medium">Nenhum item cadastrado no Plano de Ação.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add action form */}
+                  {activeSession.role !== "Visualizar" && (
+                    <form onSubmit={handleAddActionPlanItem} className="bg-slate-50/50 border border-slate-100 p-5 rounded-2xl gap-4 flex flex-col md:flex-row items-end">
+                      <div className="flex-1 space-y-1.5 w-full">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nova Ação do Plano</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Realizar acolhimento institucional, requerer prontuário..."
+                          value={newActionText}
+                          onChange={e => setNewActionText(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs focus:outline-none transition-all"
+                          required
+                        />
+                      </div>
+                      <div className="md:w-64 space-y-1.5 w-full">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Responsável</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: CRAS Centro, Conselho Tutelar, etc."
+                          value={newActionResp}
+                          onChange={e => setNewActionResp(e.target.value)}
+                          className="w-full px-3.5 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs focus:outline-none transition-all"
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap shadow-md"
+                      >
+                        Pactuar Ação
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}

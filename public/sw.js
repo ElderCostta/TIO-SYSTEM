@@ -11,7 +11,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[Service Worker] Caching app shell');
-      return cache.addAll(ASSETS_TO_CACHE);
+      // Use Promise.allSettled to ensure that if any individual asset fails to cache,
+      // the Service Worker itself is still installed and activated successfully.
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map((url) =>
+          cache.add(url)
+            .then(() => console.log(`[Service Worker] Cached: ${url}`))
+            .catch((err) => console.warn(`[Service Worker] Failed to cache: ${url}`, err))
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });

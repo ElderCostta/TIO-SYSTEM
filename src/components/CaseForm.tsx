@@ -38,6 +38,8 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
   const [caseName, setCaseName] = React.useState("");
   const [caseAge, setCaseAge] = React.useState<number>(10);
   const [caseAddress, setCaseAddress] = React.useState("");
+  const [caseBairro, setCaseBairro] = React.useState("");
+  const [caseTipoViolacao, setCaseTipoViolacao] = React.useState("");
   const [caseSigilo, setCaseSigilo] = React.useState<"Público" | "Sigiloso" | "Restrito">("Sigiloso");
   const [caseSituation, setCaseSituation] = React.useState("");
   const [caseSituationDetails, setCaseSituationDetails] = React.useState("");
@@ -216,6 +218,8 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
       name: caseName,
       age: Number(caseAge),
       address: caseAddress || "Não informado",
+      bairro: caseBairro || "Centro",
+      tipoViolacao: caseTipoViolacao || "Geral",
       sigilo: caseSigilo,
       situation: caseSituation,
       situationDetails: caseSituationDetails,
@@ -254,6 +258,7 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
         }))
       ],
       anexos: [],
+      planoAcao: [],
       resumoAI: resumoAI || undefined,
       nivelRiscoAI: nivelRiscoAI || undefined,
       vulnerabilidadesAI: vulnerabilidadesAI.length > 0 ? vulnerabilidadesAI : undefined
@@ -469,6 +474,38 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
                   <option value="Sigiloso">Sigiloso (Recomendado)</option>
                   <option value="Restrito">Restrito (Alto Risco)</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Bairro / Localidade <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Centro, Esperança, Vila Real..."
+                  value={caseBairro}
+                  onChange={e => setCaseBairro(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                  id="inp-case-bairro"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Tipo de Violação / Natureza <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: Violência Física, Negligência, Evasão Escolar..."
+                  value={caseTipoViolacao}
+                  onChange={e => setCaseTipoViolacao(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm focus:outline-none transition-all"
+                  id="inp-case-tipo-violacao"
+                  required
+                />
               </div>
             </div>
 

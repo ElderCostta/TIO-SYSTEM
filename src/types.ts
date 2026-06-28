@@ -86,4 +86,15 @@ export interface Case {
   resumoAI?: string;
   nivelRiscoAI?: "Baixo" | "Médio" | "Alto" | "Crítico";
   vulnerabilidadesAI?: string[];
+
+  // User-defined tags and details for advanced filters and plans
+  bairro?: string;
+  tipoViolacao?: string;
+  planoAcao?: Array<{
+    id: string;
+    acao: string;
+    status: "Pendente" | "Concluído";
+    responsavel: string;
+    dataCriacao: string;
+  }>;
 }

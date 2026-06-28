@@ -16,6 +16,8 @@ export const INITIAL_CASES: Case[] = [
     name: "M. J. S.",
     age: 14,
     address: "Rua das Flores, nº 123, Bairro Esperança",
+    bairro: "Esperança",
+    tipoViolacao: "Trabalho Infantil / Evasão Escolar",
     sigilo: "Sigiloso",
     situation: "Evasão escolar recorrente e indícios de trabalho infantil doméstico.",
     situationDetails: "O adolescente M. J. S., de 14 anos, não frequenta a escola regular há mais de 45 dias. A escola de origem acionou a coordenação e fez visitas pedagógicas, sem sucesso. Relatos de vizinhos apontam que o jovem está realizando trabalho doméstico informal e cuidando de três irmãos menores em período integral, enquanto a mãe trabalha em regime diurno duplo para sustento do lar. Há suspeita de negligência devido à sobrecarga de tarefas e falta de supervisão de adultos.",
@@ -140,6 +142,29 @@ export const INITIAL_CASES: Case[] = [
         organ: "Educação",
         uploadedBy: "Prof. Marcos Lima"
       }
+    ],
+    planoAcao: [
+      {
+        id: "act-101",
+        acao: "Garantir a matrícula e frequência em período integral para os irmãos menores de 4 e 6 anos",
+        status: "Pendente",
+        responsavel: "Educação",
+        dataCriacao: "2026-05-15T14:30:00Z"
+      },
+      {
+        id: "act-102",
+        acao: "Inserção familiar nos programas de transferência de renda e segurança alimentar",
+        status: "Concluído",
+        responsavel: "Assistência Social (CRAS/CREAS)",
+        dataCriacao: "2026-05-15T14:30:00Z"
+      },
+      {
+        id: "act-103",
+        acao: "Acompanhamento da frequência escolar de M. J. S. e oferta de curso técnico/Jovem Aprendiz",
+        status: "Pendente",
+        responsavel: "Educação",
+        dataCriacao: "2026-05-15T14:30:00Z"
+      }
     ]
   },
   {
@@ -147,6 +172,8 @@ export const INITIAL_CASES: Case[] = [
     name: "A. L. O.",
     age: 7,
     address: "Av. Central, nº 890, AP 202, Centro",
+    bairro: "Centro",
+    tipoViolacao: "Negligência de Saúde",
     sigilo: "Público",
     situation: "Ausência crônica de consultas médicas e negligência no tratamento de asma severa.",
     situationDetails: "A menor A. L. O., de 7 anos de idade, possui diagnóstico de asma persistente grave, porém a família tem faltado sistematicamente às consultas de pneumologia agendadas na UBS. A equipe da Estratégia Saúde da Família (ESF) realizou buscas ativas e constatou que a avó materna (cuidadora principal) possui demência senil em estágio inicial e a mãe apresenta quadro grave de depressão clínica, o que inviabiliza a organização adequada dos medicamentos da criança, colocando sua vida em perigo em caso de crises respiratórias graves.",
@@ -233,6 +260,29 @@ export const INITIAL_CASES: Case[] = [
         organ: "Saúde",
         uploadedBy: "Enf. Luciana Neves"
       }
+    ],
+    planoAcao: [
+      {
+        id: "act-201",
+        acao: "Realizar busca ativa domiciliar diária para entrega supervisionada de bombinha profilática",
+        status: "Pendente",
+        responsavel: "Saúde",
+        dataCriacao: "2026-06-05T10:00:00Z"
+      },
+      {
+        id: "act-202",
+        acao: "Garantir consulta de psiquiatria urgente para a genitora no CAPS II",
+        status: "Pendente",
+        responsavel: "Saúde",
+        dataCriacao: "2026-06-05T10:00:00Z"
+      },
+      {
+        id: "act-203",
+        acao: "Entrevistar parentes estendidos para auxílio na organização de medicamentos e proteção das crianças",
+        status: "Concluído",
+        responsavel: "Assistência Social (CRAS/CREAS)",
+        dataCriacao: "2026-06-05T10:00:00Z"
+      }
     ]
   },
   {
@@ -240,6 +290,8 @@ export const INITIAL_CASES: Case[] = [
     name: "Família Santos (J. S. G.)",
     age: 11,
     address: "Área de Ocupação Vila Real, Travessa B, Barraco 45",
+    bairro: "Vila Real",
+    tipoViolacao: "Violência Física Doméstica",
     sigilo: "Restrito",
     situation: "Violência doméstica física sistemática e vulnerabilidade habitacional extrema.",
     situationDetails: "O menor J. S. G., de 11 anos, foi atendido em unidade hospitalar com escoriações compatíveis com agressão física grave (marcas de cinto e queimadura leve). O padrasto é o principal suspeito das agressões. A família reside em condições insalubres e degradantes na Ocupação Vila Real. A mãe omite-se quanto às agressões por dependência financeira e coação psicológica exercida pelo companheiro, que possui antecedentes criminais por crimes de trânsito e ameaça.",
@@ -363,6 +415,29 @@ export const INITIAL_CASES: Case[] = [
         date: "2026-06-13T08:30:00Z",
         organ: "Polícia",
         uploadedBy: "Delegada Patrícia"
+      }
+    ],
+    planoAcao: [
+      {
+        id: "act-301",
+        acao: "Ajuizar pedido liminar de afastamento do lar do padrasto agressor",
+        status: "Concluído",
+        responsavel: "Ministério Público",
+        dataCriacao: "2026-06-18T11:00:00Z"
+      },
+      {
+        id: "act-302",
+        acao: "Efetuar rondas policiais preventivas sob comando da Patrulha Maria da Penha na área",
+        status: "Concluído",
+        responsavel: "Polícia",
+        dataCriacao: "2026-06-18T11:00:00Z"
+      },
+      {
+        id: "act-303",
+        acao: "Conceder Aluguel Social emergencial para proteção e autonomia de moradia da mãe e do menor",
+        status: "Pendente",
+        responsavel: "Assistência Social (CRAS/CREAS)",
+        dataCriacao: "2026-06-18T11:00:00Z"
       }
     ]
   }

@@ -7,10 +7,9 @@ import { Organ } from "../types";
 
 interface LoginProps {
   onLoginSuccess: (initialOrgan: Organ) => void;
-  onInstallPwa: () => void;
 }
 
-export default function Login({ onLoginSuccess, onInstallPwa }: LoginProps) {
+export default function Login({ onLoginSuccess }: LoginProps) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [selectedOrgan, setSelectedOrgan] = React.useState<Organ>("Conselho Tutelar");
@@ -204,19 +203,6 @@ export default function Login({ onLoginSuccess, onInstallPwa }: LoginProps) {
         <p className="mt-8 text-center text-xs text-slate-500">
           TIO SYSTEM • Rede integrada de proteção social municipal.
         </p>
-
-        {/* PWA Install Link */}
-        <div className="mt-5 pt-4 border-t border-slate-900/60 flex justify-center">
-          <button
-            type="button"
-            onClick={onInstallPwa}
-            className="w-full flex items-center justify-center gap-2 text-xs font-bold text-teal-400 hover:text-teal-300 transition-all bg-teal-950/40 border border-teal-900/40 hover:border-teal-800/80 px-4 py-2.5 rounded-2xl cursor-pointer"
-            id="btn-login-install-pwa"
-          >
-            <Download size={14} className="animate-bounce" />
-            <span>Baixar / Instalar App no Dispositivo</span>
-          </button>
-        </div>
       </motion.div>
     </div>
   );
