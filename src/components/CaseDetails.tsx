@@ -26,6 +26,7 @@ import {
   Award
 } from "lucide-react";
 import AtaModal from "./AtaModal";
+import AtaEditorModal from "./AtaEditorModal";
 import PrivacyText from "./PrivacyText";
 
 interface CaseDetailsProps {
@@ -96,6 +97,12 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [ataMarkdown, setAtaMarkdown] = React.useState("");
   const [ataLoading, setAtaLoading] = React.useState(false);
 
+  // Editable ATA Modal states
+  const [isAtaEditorOpen, setIsAtaEditorOpen] = React.useState(false);
+  const [ataEditorMarkdown, setAtaEditorMarkdown] = React.useState("");
+  const [ataEditorMeetingId, setAtaEditorMeetingId] = React.useState<string | null>(null);
+  const [ataEditorReadOnly, setAtaEditorReadOnly] = React.useState(false);
+
   // Secrecy Overriding State
   const [isSecrecyRevealed, setIsSecrecyRevealed] = React.useState(false);
 
@@ -121,7 +128,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     e.preventDefault();
     if (!meetDiscussion.trim()) return;
 
-    const newMeeting: Meeting = {
+    const tempMeeting: Meeting = {
       id: `meet-${Date.now()}`,
       date: meetDate,
       time: meetTime,
@@ -131,6 +138,11 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
       responsibleOrgan: meetOrgan,
       discussao: meetDiscussion
     };
+
+    // Auto-generate default ATA text based on the user's requested template
+    tempMeeting.documentoAta = generateDefaultAtaTemplate(tempMeeting);
+
+    const newMeeting = tempMeeting;
 
     const newEvent: TimelineEvent = {
       id: `ev-meet-${Date.now()}`,
@@ -428,6 +440,158 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     } finally {
       setAtaLoading(false);
     }
+  };
+
+  const generateDefaultAtaTemplate = (meeting: Meeting) => {
+    const dateFormatted = meeting.date.split('-').reverse().join('/');
+    
+    const presentOrgansList = meeting.presentOrgans || [];
+    const ctRep = presentOrgansList.includes("Conselho Tutelar") ? `Representante de ${activeSession.organ === "Conselho Tutelar" ? activeSession.username : "Conselho Tutelar"}` : "______________________________________";
+    const saudeRep = presentOrgansList.includes("Saúde") ? `Representante de ${activeSession.organ === "Saúde" ? activeSession.username : "Saúde"}` : "______________________________________";
+    const asRep = presentOrgansList.includes("Assistência Social (CRAS/CREAS)") ? `Representante de ${activeSession.organ === "Assistência Social (CRAS/CREAS)" ? activeSession.username : "CRAS/CREAS"}` : "______________________________________";
+    const educRep = presentOrgansList.includes("Educação") ? `Representante de ${activeSession.organ === "Educação" ? activeSession.username : "Educação"}` : "______________________________________";
+    const polRep = presentOrgansList.includes("Polícia") ? `Representante de ${activeSession.organ === "Polícia" ? activeSession.username : "Polícia"}` : "______________________________________";
+    const mpRep = presentOrgansList.includes("Ministério Público") ? `Representante de ${activeSession.organ === "Ministério Público" ? activeSession.username : "Ministério Público"}` : "______________________________________";
+
+    // Format current case referrals/action plan items as table rows
+    let tableRows = "";
+    const activeReferrals = caseItem.encaminhamentos || [];
+    const activeActions = caseItem.planoAcao || [];
+    
+    if (activeReferrals.length > 0) {
+      tableRows = activeReferrals.map(ref => `| ${ref.acao} | ${ref.orgaoResponsavel} | ${ref.prazo.split('-').reverse().join('/')} |`).join("\n");
+    } else if (activeActions.length > 0) {
+      tableRows = activeActions.map(act => `| ${act.acao} | ${act.responsavel} | ${new Date(act.dataCriacao).toLocaleDateString("pt-BR")} |`).join("\n");
+    } else {
+      tableRows = "|                                              |             |       |\n|                                              |             |       |";
+    }
+
+    return `# ATA DE REUNIÃO INTERSETORIAL
+
+**ATA Nº:** ${(caseItem.reunioes?.indexOf(meeting) !== -1 ? (caseItem.reunioes?.indexOf(meeting) ?? 0) + 1 : 1).toString().padStart(3, '0')}/${new Date(meeting.date).getFullYear()}
+**Data:** ${dateFormatted}
+**Horário:** ${meeting.time} às ________
+**Local:** ${meeting.location}
+
+## 1. Participantes
+
+Estiveram presentes os representantes dos seguintes órgãos e instituições:
+
+* Conselho Tutelar: ${ctRep}
+* Saúde: ${saudeRep}
+* Assistência Social: ${asRep}
+* Educação: ${educRep}
+* Polícia Militar/Polícia Civil: ${polRep}
+* Ministério Público (quando houver): ${mpRep}
+* Outros: _______________________________________________
+
+## 2. Pauta da Reunião
+
+1. Análise técnica e acompanhamento intersetorial do caso de: **${caseItem.name}**
+2. Pactuação de novos encaminhamentos prioritários e do Plano de Ação Individual
+3. Fortalecimento dos fluxos de proteção integral ao assistido e familiares
+
+## 3. Desenvolvimento da Reunião
+
+A reunião foi iniciada às ${meeting.time}, sob a coordenação de ${meeting.responsiblePerson} (${meeting.responsibleOrgan}), que deu as boas-vindas aos participantes e apresentou a pauta do caso de **${caseItem.name}**.
+
+Durante o encontro, os seguintes pontos foram debatidos e articulados pela rede intersetorial:
+
+* ${meeting.discussao || "Discussão do caso, identificação das principais fragilidades familiares e propostas de intervenção."}
+
+Cada órgão apresentou suas considerações, informações e encaminhamentos relacionados aos temas discutidos, respeitando as competências legais e institucionais de cada setor.
+
+## 4. Encaminhamentos
+
+Ficaram definidos os seguintes encaminhamentos:
+
+| Encaminhamento | Responsável | Prazo |
+| -------------- | ----------- | ----- |
+${tableRows}
+
+## 5. Observações
+
+- Todos os órgãos pactuantes se comprometem a acompanhar de forma prioritária as ações sob sua responsabilidade direta.
+- Os andamentos e respostas oficiais deverão ser inseridos e atualizados no TIO System para garantir o monitoramento ágil em tempo real.
+
+## 6. Encerramento
+
+Nada mais havendo a tratar, a reunião foi encerrada, sendo lavrada a presente ata, que, após lida e aprovada, será assinada por todos os participantes.
+
+**Local:** ${meeting.location}
+
+**Data:** ${dateFormatted}
+
+### Assinaturas
+
+Nome: _________________________________________
+Órgão: Conselho Tutelar
+Assinatura: ____________________________________
+
+Nome: _________________________________________
+Órgão: Assistência Social (CRAS/CREAS)
+Assinatura: ____________________________________
+
+Nome: _________________________________________
+Órgão: Saúde
+Assinatura: ____________________________________
+
+Nome: _________________________________________
+Órgão: Educação
+Assinatura: ____________________________________
+
+Nome: _________________________________________
+Órgão: Polícia Militar/Polícia Civil
+Assinatura: ____________________________________
+`;
+  };
+
+  const handleOpenAtaEditor = (meeting: Meeting, readOnly: boolean = false) => {
+    setAtaEditorMeetingId(meeting.id);
+    setAtaEditorReadOnly(readOnly);
+    if (meeting.documentoAta) {
+      setAtaEditorMarkdown(meeting.documentoAta);
+    } else {
+      setAtaEditorMarkdown(generateDefaultAtaTemplate(meeting));
+    }
+    setIsAtaEditorOpen(true);
+  };
+
+  const handleSaveAtaEditor = (newMarkdown: string) => {
+    if (!ataEditorMeetingId) return;
+
+    const updatedMeetings = (caseItem.reunioes || []).map(m => {
+      if (m.id === ataEditorMeetingId) {
+        return {
+          ...m,
+          documentoAta: newMarkdown
+        };
+      }
+      return m;
+    });
+
+    const targetMeeting = caseItem.reunioes?.find(m => m.id === ataEditorMeetingId);
+    const meetingDateFormatted = targetMeeting ? targetMeeting.date.split('-').reverse().join('/') : "";
+
+    const newEvent: TimelineEvent = {
+      id: `ev-ata-edit-${Date.now()}`,
+      date: new Date().toISOString(),
+      organ: activeSession.organ,
+      user: activeSession.username,
+      title: "Ata Oficial de Reunião Editada/Salva",
+      description: `A ata oficial da reunião do dia ${meetingDateFormatted} foi preenchida e salva pelo órgão ${activeSession.organ}.`,
+      type: "reuniao"
+    };
+
+    const updatedCase: Case = {
+      ...caseItem,
+      reunioes: updatedMeetings,
+      timeline: [...(caseItem.timeline || []), newEvent]
+    };
+
+    onUpdateCase(updatedCase);
+    setIsAtaEditorOpen(false);
+    setAtaEditorMeetingId(null);
   };
 
   // Update overall Case status (Active, monitoring, completed, archived)
@@ -1632,6 +1796,26 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
                         {m.discussao}
                       </p>
                     </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 border-t border-slate-100 mt-2 gap-3">
+                      <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${m.documentoAta ? "bg-emerald-500" : "bg-amber-400"}`}></span>
+                        <span>{m.documentoAta ? "Ata Oficial preenchida e gravada" : "Ata Oficial pendente de preenchimento"}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenAtaEditor(m, activeSession.role === "Visualizar")}
+                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer border ${
+                          m.documentoAta
+                            ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100/80"
+                            : "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
+                        }`}
+                        id={`btn-open-ata-editor-${m.id}`}
+                      >
+                        <FileText size={13} />
+                        {m.documentoAta ? "Ver / Editar ATA Oficial" : "Preencher ATA pelo Modelo"}
+                      </button>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -1769,6 +1953,16 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
         onClose={() => setIsAtaOpen(false)}
         markdown={ataMarkdown}
         loading={ataLoading}
+      />
+
+      {/* Editable ATA modal with custom Markdown template and editor */}
+      <AtaEditorModal
+        isOpen={isAtaEditorOpen}
+        onClose={() => setIsAtaEditorOpen(false)}
+        initialMarkdown={ataEditorMarkdown}
+        onSave={handleSaveAtaEditor}
+        readOnly={ataEditorReadOnly}
+        title={`Ata de Reunião - Caso ${caseItem.name}`}
       />
 
     </div>

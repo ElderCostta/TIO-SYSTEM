@@ -64,6 +64,20 @@ export interface Meeting {
   responsiblePerson: string;
   responsibleOrgan: Organ;
   discussao: string;
+  documentoAta?: string;
+}
+
+export interface GeneralAta {
+  id: string;
+  date: string;
+  time: string;
+  location: string;
+  coordinator: string;
+  content: string;
+  dataCriacao: string;
+  organ: string;
+  user: string;
+  numero?: number;
 }
 
 export interface Case {

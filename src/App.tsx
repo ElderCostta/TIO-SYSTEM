@@ -6,6 +6,7 @@ import Logo from "./components/Logo";
 import Login from "./components/Login";
 import CaseForm from "./components/CaseForm";
 import CaseDetails from "./components/CaseDetails";
+import RegistroAtas from "./components/RegistroAtas";
 import PrivacyText from "./components/PrivacyText";
 import { motion } from "motion/react";
 import { 
@@ -347,7 +348,8 @@ export default function App() {
           {[
             { id: "dashboard", label: "Painel Geral", action: () => { setActiveTab("dashboard"); setSelectedCaseId(null); }, isActive: activeTab === "dashboard" && !selectedCaseId },
             { id: "casos", label: "Casos da Rede", action: () => { setActiveTab("casos"); }, isActive: activeTab === "casos" || selectedCaseId !== null },
-            { id: "nova-reuniao", label: "Registrar Reunião / Caso", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" }
+            { id: "nova-reuniao", label: "Registrar Reunião / Caso", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" },
+            { id: "registro-atas", label: "Registro de Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -456,7 +458,8 @@ export default function App() {
         {[
           { id: "dashboard", label: "Painel", action: () => { setActiveTab("dashboard"); setSelectedCaseId(null); }, isActive: activeTab === "dashboard" && !selectedCaseId },
           { id: "casos", label: "Casos", action: () => { setActiveTab("casos"); }, isActive: activeTab === "casos" || selectedCaseId !== null },
-          { id: "nova-reuniao", label: "Reunião", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" }
+          { id: "nova-reuniao", label: "Reunião", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" },
+          { id: "registro-atas", label: "Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -785,6 +788,20 @@ export default function App() {
                   onSaveCase={handleSaveNewCase}
                   activeSession={session}
                   onCancel={() => setActiveTab("dashboard")}
+                />
+              </motion.div>
+            )}
+
+            {/* TAB: REGISTRO DE ATAS */}
+            {activeTab === "registro-atas" && (
+              <motion.div
+                key="registro-atas"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <RegistroAtas
+                  activeSession={session}
                 />
               </motion.div>
             )}
