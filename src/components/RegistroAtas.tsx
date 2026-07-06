@@ -777,15 +777,19 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
               /* Header block */
               .header-container {
                 display: flex;
+                flex-direction: column;
                 align-items: center;
+                text-align: center;
                 border-bottom: 2.5px solid #0f172a;
-                padding-bottom: 14px;
+                padding-bottom: 16px;
                 margin-bottom: 24px;
               }
               .header-logo {
-                margin-right: 18px;
+                margin-right: 0;
+                margin-bottom: 12px;
                 display: flex;
                 align-items: center;
+                justify-content: center;
               }
               .header-text {
                 flex-grow: 1;
@@ -795,15 +799,16 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
                 font-weight: 700;
                 color: #475569;
                 letter-spacing: 1.5px;
-                margin: 0 0 2px 0;
+                margin: 0 0 4px 0;
                 text-transform: uppercase;
               }
               .gov-title {
-                font-size: 16px;
+                font-size: 17px;
                 font-weight: 700;
                 color: #0f172a;
-                margin: 0 0 2px 0;
+                margin: 0 0 6px 0;
                 letter-spacing: 0.25px;
+                line-height: 1.4;
               }
               .gov-subtitle {
                 font-size: 10px;
@@ -856,9 +861,10 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
               /* Content block styling */
               .document-content {
                 text-align: justify;
-                font-size: 13.5px;
+                font-size: 14.5px;
                 color: #1e293b;
                 margin-bottom: 35px;
+                font-family: "Times New Roman", Times, Baskerville, Georgia, serif;
               }
               .document-content h1 {
                 font-size: 16px;
@@ -1008,15 +1014,31 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
           <body>
             <div class="header-container">
               <div class="header-logo">
-                <svg class="seal-svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  <path d="M12 8v8"/>
-                  <path d="M8 12h8"/>
+                <svg width="80" height="88" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Node lines (Left-Top) -->
+                  <line x1="14" y1="31" x2="28" y2="38" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
+                  <!-- Node lines (Left-Bottom) -->
+                  <line x1="14" y1="69" x2="28" y2="62" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
+                  <!-- Node lines (Right-Top) -->
+                  <line x1="86" y1="31" x2="72" y2="38" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
+                  <!-- Node lines (Right-Bottom) -->
+                  <line x1="86" y1="69" x2="72" y2="62" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
+
+                  <!-- Nodes (Circles) -->
+                  <circle cx="12" cy="30" r="4.5" fill="#26a69a" />
+                  <circle cx="12" cy="70" r="4.5" fill="#26a69a" />
+                  <circle cx="88" cy="30" r="4.5" fill="#26a69a" />
+                  <circle cx="88" cy="70" r="4.5" fill="#26a69a" />
+
+                  <!-- Shield filled with light cyan background and teal border -->
+                  <path d="M 50 15 L 28 23 L 28 52 C 28 72, 38 88, 50 95 C 62 88, 72 72, 72 52 L 72 23 Z" fill="#e6f4f1" stroke="#00695c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+
+                  <!-- House Icon inside Shield (continuous line drawing) -->
+                  <path d="M 39 44 L 50 34 L 61 44 V 62 M 44 49 H 56 V 62 H 44 Z" stroke="#00352c" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </div>
               <div class="header-text">
-                <div class="gov-republic">República Federativa do Brasil</div>
-                <div class="gov-title">Rede Intersetorial de Garantia de Direitos</div>
+                <div class="gov-title">Rede De Integração Operacional de Direitos da Criança e do Adolescente - TIO</div>
                 <div class="gov-subtitle">Sistema Integrado TIO • Registro Oficial de Atas</div>
               </div>
             </div>
