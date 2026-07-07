@@ -44,7 +44,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden" id="login-container">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 relative overflow-hidden" id="login-container" style={{ perspective: "1200px" }}>
       {/* Background Image with elegant overlay */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
         <img 
@@ -62,9 +62,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
       {/* Main card */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", duration: 0.8 }}
+        initial={{ rotateY: -25, opacity: 0, x: -40, scale: 0.96, transformOrigin: "left center" }}
+        animate={{ rotateY: 0, opacity: 1, x: 0, scale: 1, transformOrigin: "left center" }}
+        transition={{ duration: 0.75, ease: [0.25, 1, 0.5, 1] as any }}
+        style={{ backfaceVisibility: "hidden" }}
         className="w-full max-w-md bg-slate-950/45 border border-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative z-10"
       >
         {/* Logo and branding Header */}

@@ -1,6 +1,40 @@
 import React from "react";
 import { Case, Referral, TimelineEvent, Attachment, Organ, Meeting } from "../types";
 import { ALL_ORGANS } from "../data";
+import { motion, AnimatePresence } from "motion/react";
+
+// Crisp page-turn feel for subtabs
+const subTabFlipVariants = {
+  initial: {
+    rotateY: -12,
+    opacity: 0,
+    x: -15,
+    scale: 0.99,
+    transformOrigin: "left center",
+  },
+  animate: {
+    rotateY: 0,
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transformOrigin: "left center",
+    transition: {
+      duration: 0.35,
+      ease: [0.25, 1, 0.5, 1] as any,
+    }
+  },
+  exit: {
+    rotateY: 12,
+    opacity: 0,
+    x: 15,
+    scale: 0.99,
+    transformOrigin: "right center",
+    transition: {
+      duration: 0.28,
+      ease: [0.25, 1, 0.5, 1] as any,
+    }
+  }
+};
 import { 
   ArrowLeft, 
   Clock, 
@@ -926,11 +960,20 @@ Assinatura: ____________________________________
       </div>
 
       {/* SUB-TAB CONTENTS */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm font-sans min-h-[400px]">
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm font-sans min-h-[400px]" style={{ perspective: "1000px" }}>
         
-        {/* TAB 1: GERAL (FICHA DO CASO) */}
-        {activeSubTab === "geral" && (
-          <div className="space-y-8" id="subtab-geral">
+        <AnimatePresence mode="wait">
+          {activeSubTab === "geral" ? (
+            <motion.div
+              key="geral"
+              variants={subTabFlipVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={{ backfaceVisibility: "hidden" }}
+              className="space-y-8"
+              id="subtab-geral"
+            >
             {isEditingCase ? (
               <form onSubmit={handleSaveCaseEdits} className="space-y-6">
                 <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -1269,12 +1312,18 @@ Assinatura: ____________________________________
                 </div>
               </>
             )}
-          </div>
-        )}
-
-        {/* TAB 2: TIMELINE / DISCUSSÕES */}
-        {activeSubTab === "timeline" && (
-          <div className="space-y-8" id="subtab-timeline">
+          </motion.div>
+        ) : activeSubTab === "timeline" ? (
+          <motion.div
+            key="timeline"
+            variants={subTabFlipVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{ backfaceVisibility: "hidden" }}
+            className="space-y-8"
+            id="subtab-timeline"
+          >
             
             {/* Note creation form */}
             {activeSession.role !== "Visualizar" && (
@@ -1377,12 +1426,18 @@ Assinatura: ____________________________________
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* TAB 3: ENCAMINHAMENTOS */}
-        {activeSubTab === "encaminhamentos" && (
-          <div className="space-y-8" id="subtab-encaminhamentos">
+          </motion.div>
+        ) : activeSubTab === "encaminhamentos" ? (
+          <motion.div
+            key="encaminhamentos"
+            variants={subTabFlipVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{ backfaceVisibility: "hidden" }}
+            className="space-y-8"
+            id="subtab-encaminhamentos"
+          >
             
             {/* Manual referral creator inside active workspace */}
             {activeSession.role !== "Visualizar" && (
@@ -1602,12 +1657,18 @@ Assinatura: ____________________________________
               </div>
             )}
 
-          </div>
-        )}
-
-        {/* TAB 4: ATAS */}
-        {activeSubTab === "atas" && (
-          <div className="space-y-6" id="subtab-atas">
+          </motion.div>
+        ) : activeSubTab === "atas" ? (
+          <motion.div
+            key="atas"
+            variants={subTabFlipVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{ backfaceVisibility: "hidden" }}
+            className="space-y-6"
+            id="subtab-atas"
+          >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
               <div>
                 <h3 className="font-sans text-md font-bold text-slate-800">Atas das Reuniões de Rede</h3>
@@ -1822,12 +1883,18 @@ Assinatura: ____________________________________
                 <p className="text-xs text-slate-500 italic">Nenhuma ata cadastrada ainda.</p>
               )}
             </div>
-          </div>
-        )}
-
-        {/* TAB 5: ANEXOS */}
-        {activeSubTab === "anexos" && (
-          <div className="space-y-6" id="subtab-anexos">
+          </motion.div>
+        ) : activeSubTab === "anexos" ? (
+          <motion.div
+            key="anexos"
+            variants={subTabFlipVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            style={{ backfaceVisibility: "hidden" }}
+            className="space-y-6"
+            id="subtab-anexos"
+          >
             
             <div className="flex flex-col md:flex-row gap-6">
               
@@ -1942,8 +2009,9 @@ Assinatura: ____________________________________
 
             </div>
 
-          </div>
-        )}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       </div>
 

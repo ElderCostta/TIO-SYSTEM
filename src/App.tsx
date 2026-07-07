@@ -8,7 +8,7 @@ import CaseForm from "./components/CaseForm";
 import CaseDetails from "./components/CaseDetails";
 import RegistroAtas from "./components/RegistroAtas";
 import PrivacyText from "./components/PrivacyText";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   Users, 
   Calendar, 
@@ -27,6 +27,39 @@ import {
   Shield,
   Trash2
 } from "lucide-react";
+
+// Professional 3D Page Turn animation variants
+const pageFlipVariants = {
+  initial: {
+    rotateY: -18,
+    opacity: 0,
+    x: -25,
+    scale: 0.98,
+    transformOrigin: "left center",
+  },
+  animate: {
+    rotateY: 0,
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transformOrigin: "left center",
+    transition: {
+      duration: 0.42,
+      ease: [0.25, 1, 0.5, 1] as any, // Cubic bezier for page physical feel
+    }
+  },
+  exit: {
+    rotateY: 18,
+    opacity: 0,
+    x: 25,
+    scale: 0.98,
+    transformOrigin: "right center",
+    transition: {
+      duration: 0.35,
+      ease: [0.25, 1, 0.5, 1] as any,
+    }
+  }
+};
 
 export default function App() {
   // 1. Core State
@@ -481,46 +514,54 @@ export default function App() {
       </div>
 
       {/* 4. MAIN WORKSPACE CONTENT */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8" style={{ perspective: "1500px", overflowX: "hidden" }}>
         
-        {/* CASE DETAILS SELECTED VIEW (OVERLAY OR DIRECT REPLACE OF CASO TAB) */}
-        {selectedCaseId && selectedCase ? (
-          <CaseDetails
-            caseItem={selectedCase}
-            activeSession={session}
-            onBack={() => setSelectedCaseId(null)}
-            onUpdateCase={handleUpdateCase}
-            safeMode={safeMode}
-          />
-        ) : (
-          <>
-            {/* TAB: DASHBOARD */}
-            {activeTab === "dashboard" && (
-              <motion.div
-                key="dashboard"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-              >
-                <Dashboard
-                  cases={cases}
-                  onSelectCase={(id) => { setSelectedCaseId(id); setActiveTab("casos"); }}
-                  onNavigateToTab={(tab) => { setActiveTab(tab); setSelectedCaseId(null); }}
-                  safeMode={safeMode}
-                />
-              </motion.div>
-            )}
-
-            {/* TAB: CASOS (LISTING & SEARCHING) */}
-            {activeTab === "casos" && (
-              <motion.div
-                key="casos"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-                className="space-y-6"
-                id="tab-casos-list"
-              >
+        <AnimatePresence mode="wait">
+          {selectedCaseId && selectedCase ? (
+            <motion.div
+              key={`case-${selectedCaseId}`}
+              variants={pageFlipVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={{ backfaceVisibility: "hidden" }}
+              className="w-full"
+            >
+              <CaseDetails
+                caseItem={selectedCase}
+                activeSession={session}
+                onBack={() => setSelectedCaseId(null)}
+                onUpdateCase={handleUpdateCase}
+                safeMode={safeMode}
+              />
+            </motion.div>
+          ) : activeTab === "dashboard" ? (
+            <motion.div
+              key="dashboard"
+              variants={pageFlipVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={{ backfaceVisibility: "hidden" }}
+            >
+              <Dashboard
+                cases={cases}
+                onSelectCase={(id) => { setSelectedCaseId(id); setActiveTab("casos"); }}
+                onNavigateToTab={(tab) => { setActiveTab(tab); setSelectedCaseId(null); }}
+                safeMode={safeMode}
+              />
+            </motion.div>
+          ) : activeTab === "casos" ? (
+            <motion.div
+              key="casos"
+              variants={pageFlipVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              style={{ backfaceVisibility: "hidden" }}
+              className="space-y-6"
+              id="tab-casos-list"
+            >
                 
                 {/* Searching & Filter Bar */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-4">
@@ -774,15 +815,14 @@ export default function App() {
                 )}
 
               </motion.div>
-            )}
-
-            {/* TAB: NOVA REUNIAO */}
-            {activeTab === "nova-reuniao" && (
+            ) : activeTab === "nova-reuniao" ? (
               <motion.div
                 key="nova-reuniao"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
+                variants={pageFlipVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                style={{ backfaceVisibility: "hidden" }}
               >
                 <CaseForm
                   onSaveCase={handleSaveNewCase}
@@ -790,23 +830,21 @@ export default function App() {
                   onCancel={() => setActiveTab("dashboard")}
                 />
               </motion.div>
-            )}
-
-            {/* TAB: REGISTRO DE ATAS */}
-            {activeTab === "registro-atas" && (
+            ) : activeTab === "registro-atas" ? (
               <motion.div
                 key="registro-atas"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
+                variants={pageFlipVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                style={{ backfaceVisibility: "hidden" }}
               >
                 <RegistroAtas
                   activeSession={session}
                 />
               </motion.div>
-            )}
-          </>
-        )}
+            ) : null}
+        </AnimatePresence>
 
       </main>
 
