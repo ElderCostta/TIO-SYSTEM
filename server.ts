@@ -205,6 +205,38 @@ Retorne APENAS o conteúdo em Markdown, pronto para visualização, sem blocos d
   }
 });
 
+// Real-time synchronization in-memory database endpoints
+let serverGeneralAtas: any[] = [];
+let serverCases: any[] = [];
+
+// Endpoint to get synchronized general minutes (atas)
+app.get("/api/sync/atas", (req, res) => {
+  res.json({ atas: serverGeneralAtas });
+});
+
+// Endpoint to update synchronized general minutes (atas)
+app.post("/api/sync/atas", (req, res) => {
+  const { atas } = req.body;
+  if (Array.isArray(atas)) {
+    serverGeneralAtas = atas;
+  }
+  res.json({ success: true, atas: serverGeneralAtas });
+});
+
+// Endpoint to get synchronized cases
+app.get("/api/sync/cases", (req, res) => {
+  res.json({ cases: serverCases });
+});
+
+// Endpoint to update synchronized cases
+app.post("/api/sync/cases", (req, res) => {
+  const { cases } = req.body;
+  if (Array.isArray(cases)) {
+    serverCases = cases;
+  }
+  res.json({ success: true, cases: serverCases });
+});
+
 // Setup Vite Dev Server / Static Hosting
 
 async function startServer() {

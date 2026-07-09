@@ -25,7 +25,9 @@ import {
   RefreshCw,
   LogOut,
   Shield,
-  Trash2
+  Trash2,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
 // Professional 3D Page Turn animation variants
@@ -81,6 +83,64 @@ export default function App() {
     localStorage.setItem("tio_system_safe_mode", String(newValue));
   };
 
+  // State for Real-Time cloud synchronization
+  const [realTimeSync, setRealTimeSync] = React.useState<boolean>(() => {
+    return localStorage.getItem("tio_system_real_time_sync") !== "false";
+  });
+
+  const toggleRealTimeSync = () => {
+    const newValue = !realTimeSync;
+    setRealTimeSync(newValue);
+    localStorage.setItem("tio_system_real_time_sync", String(newValue));
+  };
+
+  // Real-time synchronization polling
+  React.useEffect(() => {
+    if (!realTimeSync) return;
+
+    let isMounted = true;
+    
+    const syncWithServer = async () => {
+      try {
+        const response = await fetch("/api/sync/cases");
+        const data = await response.json();
+        
+        if (isMounted && data.cases) {
+          if (data.cases.length === 0) {
+            const localStored = localStorage.getItem("tio_system_cases");
+            if (localStored) {
+              const parsed = JSON.parse(localStored);
+              if (parsed && parsed.length > 0) {
+                await fetch("/api/sync/cases", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ cases: parsed })
+                });
+              }
+            }
+          } else {
+            const serverJson = JSON.stringify(data.cases);
+            const localStored = localStorage.getItem("tio_system_cases");
+            if (serverJson !== localStored && data.cases.length > 0) {
+              setCases(data.cases);
+              localStorage.setItem("tio_system_cases", serverJson);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao puxar casos sincronizados:", err);
+      }
+    };
+
+    syncWithServer();
+    const intervalId = setInterval(syncWithServer, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [realTimeSync]);
+
   // Simulated Login Session
   const [session, setSession] = React.useState<UserSession>({
     organ: "Conselho Tutelar",
@@ -124,6 +184,15 @@ export default function App() {
   const saveCasesToStorage = (updatedCases: Case[]) => {
     setCases(updatedCases);
     localStorage.setItem("tio_system_cases", JSON.stringify(updatedCases));
+    if (realTimeSync) {
+      fetch("/api/sync/cases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cases: updatedCases })
+      })
+      .then(res => res.json())
+      .catch(err => console.error("Erro ao sincronizar casos no servidor:", err));
+    }
   };
 
   // 3. Simulated user logins
@@ -448,6 +517,32 @@ export default function App() {
               </div>
             )}
           </div>
+
+          {/* Toggle Real-Time Cloud Sync */}
+          <button
+            onClick={toggleRealTimeSync}
+            className={`px-3 py-1.5 rounded-xl transition-all border flex items-center gap-2 font-bold text-xs select-none cursor-pointer ${
+              realTimeSync 
+                ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm" 
+                : "bg-slate-50 text-slate-500 border-slate-200"
+            }`}
+            id="toggle-real-time-sync"
+            title="Sincronização em Tempo Real (Atas sincronizadas simultaneamente entre todos os computadores)"
+          >
+            {realTimeSync ? (
+              <>
+                <Wifi size={14} className="text-indigo-600 animate-pulse" />
+                <span className="hidden md:inline">Nuvem Real-Time: Ativo</span>
+                <span className="md:hidden">Sincronizado</span>
+              </>
+            ) : (
+              <>
+                <WifiOff size={14} className="text-slate-400" />
+                <span className="hidden md:inline">Nuvem Real-Time: Inativo</span>
+                <span className="md:hidden">Local Only</span>
+              </>
+            )}
+          </button>
 
           {/* Toggle LGPD Safe Mode / Screen-Shield */}
           <button
@@ -841,6 +936,7 @@ export default function App() {
               >
                 <RegistroAtas
                   activeSession={session}
+                  realTimeSync={realTimeSync}
                 />
               </motion.div>
             ) : null}

@@ -321,9 +321,10 @@ Outros participantes: Dr. Marcelo Ramos (Ministério Público)
 
 interface RegistroAtasProps {
   activeSession: UserSession;
+  realTimeSync: boolean;
 }
 
-export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
+export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAtasProps) {
   // Core Registry State
   const [atas, setAtas] = React.useState<GeneralAta[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -392,9 +393,66 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
     setAtas(loaded);
   }, []);
 
+  // Real-time synchronization polling for general minutes
+  React.useEffect(() => {
+    if (!realTimeSync) return;
+
+    let isMounted = true;
+    
+    const syncAtasWithServer = async () => {
+      try {
+        const response = await fetch("/api/sync/atas");
+        const data = await response.json();
+        
+        if (isMounted && data.atas) {
+          if (data.atas.length === 0) {
+            const localStored = localStorage.getItem("tio_system_general_atas");
+            if (localStored) {
+              const parsed = JSON.parse(localStored);
+              if (parsed && parsed.length > 0) {
+                await fetch("/api/sync/atas", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ atas: parsed })
+                });
+              }
+            }
+          } else {
+            const serverJson = JSON.stringify(data.atas);
+            const localStored = localStorage.getItem("tio_system_general_atas");
+            if (serverJson !== localStored && data.atas.length > 0) {
+              setAtas(data.atas);
+              localStorage.setItem("tio_system_general_atas", serverJson);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao puxar atas sincronizadas:", err);
+      }
+    };
+
+    syncAtasWithServer();
+    const intervalId = setInterval(syncAtasWithServer, 3500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [realTimeSync]);
+
   const saveAtas = (updatedList: GeneralAta[]) => {
     setAtas(updatedList);
     localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
+    
+    if (realTimeSync) {
+      fetch("/api/sync/atas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ atas: updatedList })
+      })
+      .then(res => res.json())
+      .catch(err => console.error("Erro ao sincronizar atas no servidor:", err));
+    }
   };
 
   // Live Sync form changes into Markdown text
@@ -1014,32 +1072,46 @@ export default function RegistroAtas({ activeSession }: RegistroAtasProps) {
           <body>
             <div class="header-container">
               <div class="header-logo">
-                <svg width="80" height="88" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <!-- Node lines (Left-Top) -->
-                  <line x1="14" y1="31" x2="28" y2="38" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
-                  <!-- Node lines (Left-Bottom) -->
-                  <line x1="14" y1="69" x2="28" y2="62" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
-                  <!-- Node lines (Right-Top) -->
-                  <line x1="86" y1="31" x2="72" y2="38" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
-                  <!-- Node lines (Right-Bottom) -->
-                  <line x1="86" y1="69" x2="72" y2="62" stroke="#4db6ac" stroke-width="1.8" stroke-linecap="round" />
+                <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="blueGrad" x1="0" y1="1" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#0056b3" />
+                      <stop offset="100%" stop-color="#0088ff" />
+                    </linearGradient>
+                    <linearGradient id="orangeGrad" x1="0" y1="1" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#e65c00" />
+                      <stop offset="100%" stop-color="#ffb300" />
+                    </linearGradient>
+                  </defs>
 
-                  <!-- Nodes (Circles) -->
-                  <circle cx="12" cy="30" r="4.5" fill="#26a69a" />
-                  <circle cx="12" cy="70" r="4.5" fill="#26a69a" />
-                  <circle cx="88" cy="30" r="4.5" fill="#26a69a" />
-                  <circle cx="88" cy="70" r="4.5" fill="#26a69a" />
+                  <!-- Left Blue Hand forming left heart lobe -->
+                  <path d="M100,165 C60,140 30,105 30,75 C30,45 60,35 85,60 C70,45 50,55 50,75 C50,95 80,135 100,155" fill="none" stroke="url(#blueGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M50,75 C50,105 78,135 95,150" fill="none" stroke="url(#blueGrad)" stroke-width="6" stroke-linecap="round" />
+                  <path d="M40,75 C40,95 65,122 82,138" fill="none" stroke="url(#blueGrad)" stroke-width="4" stroke-linecap="round" />
 
-                  <!-- Shield filled with light cyan background and teal border -->
-                  <path d="M 50 15 L 28 23 L 28 52 C 28 72, 38 88, 50 95 C 62 88, 72 72, 72 52 L 72 23 Z" fill="#e6f4f1" stroke="#00695c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                  <!-- Right Orange Hand forming right heart lobe -->
+                  <path d="M100,165 C140,140 170,105 170,75 C170,45 140,35 115,60 C130,45 150,55 150,75 C150,95 120,135 100,155" fill="none" stroke="url(#orangeGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M150,75 C150,105 122,135 105,150" fill="none" stroke="url(#orangeGrad)" stroke-width="6" stroke-linecap="round" />
+                  <path d="M160,75 C160,95 135,122 118,138" fill="none" stroke="url(#orangeGrad)" stroke-width="4" stroke-linecap="round" />
 
-                  <!-- House Icon inside Shield (continuous line drawing) -->
-                  <path d="M 39 44 L 50 34 L 61 44 V 62 M 44 49 H 56 V 62 H 44 Z" stroke="#00352c" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+                  <!-- Child and Teen Silhouettes in Center -->
+                  <!-- Teen (Right) -->
+                  <circle cx="116" cy="84" r="11" fill="#0056b3" />
+                  <path d="M116,97 C104,97 100,107 100,117 C100,121 106,132 116,132 C126,132 132,121 132,117 C132,107 128,97 116,97 Z" fill="#0056b3" />
+
+                  <!-- Child (Left) -->
+                  <circle cx="88" cy="94" r="8" fill="#0056b3" />
+                  <path d="M88,104 C78,104 75,112 75,120 C75,123 80,132 88,132 C96,132 101,123 101,120 C101,112 98,104 88,104 Z" fill="#0056b3" />
                 </svg>
               </div>
-              <div class="header-text">
-                <div class="gov-title">Rede De Integração Operacional de Direitos da Criança e do Adolescente - TIO</div>
-                <div class="gov-subtitle">Sistema Integrado TIO • Registro Oficial de Atas</div>
+              <div class="header-text" style="margin-top: 10px;">
+                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 700; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
+                  Grupo de Integração Operacional de Direitos da Criança e do Adolescente
+                </div>
+                <div style="width: 120px; height: 3px; background: linear-gradient(to right, #0056b3, #ffb300); margin: 6px auto;"></div>
+                <div class="gov-subtitle" style="font-size: 13px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
+                  Currais Novos - RN <span style="color: #cbd5e1; margin: 0 6px;">|</span> <span style="color: #e65c00;">Grupo TIO</span>
+                </div>
               </div>
             </div>
 
