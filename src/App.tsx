@@ -106,25 +106,11 @@ export default function App() {
         const data = await response.json();
         
         if (isMounted && data.cases) {
-          if (data.cases.length === 0) {
-            const localStored = localStorage.getItem("tio_system_cases");
-            if (localStored) {
-              const parsed = JSON.parse(localStored);
-              if (parsed && parsed.length > 0) {
-                await fetch("/api/sync/cases", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ cases: parsed })
-                });
-              }
-            }
-          } else {
-            const serverJson = JSON.stringify(data.cases);
-            const localStored = localStorage.getItem("tio_system_cases");
-            if (serverJson !== localStored && data.cases.length > 0) {
-              setCases(data.cases);
-              localStorage.setItem("tio_system_cases", serverJson);
-            }
+          const serverJson = JSON.stringify(data.cases);
+          const localStored = localStorage.getItem("tio_system_cases");
+          if (serverJson !== localStored) {
+            setCases(data.cases);
+            localStorage.setItem("tio_system_cases", serverJson);
           }
         }
       } catch (err) {
@@ -133,7 +119,7 @@ export default function App() {
     };
 
     syncWithServer();
-    const intervalId = setInterval(syncWithServer, 3500);
+    const intervalId = setInterval(syncWithServer, 1500);
 
     return () => {
       isMounted = false;

@@ -22,6 +22,7 @@ import {
   FileSpreadsheet
 } from "lucide-react";
 import { GeneralAta, UserSession } from "../types";
+import { DEFAULT_GENERAL_ATAS } from "../data";
 
 // Portuguese date words helper
 const getPortugueseDateInWords = (dateStr: string) => {
@@ -143,182 +144,6 @@ Outros participantes
 **ANEXO:** Lista de Presença`;
 };
 
-// Seed initial general meetings (atas) if none exist in localStorage
-const DEFAULT_GENERAL_ATAS: GeneralAta[] = [
-  {
-    id: "gata-1",
-    date: "2026-05-18",
-    time: "14:00",
-    location: "Auditório da Secretaria de Assistência Social",
-    coordinator: "Dra. Elaine Santos (Assistência Social)",
-    content: `# ATA DE REUNIÃO INTERSETORIAL
-
-Aos **18** dias do mês de **Maio** do ano de **2026**, às **14:00** horas, realizou-se a reunião intersetorial na (local da reunião) **Auditório da Secretaria de Assistência Social**, com a presença dos representantes dos seguintes órgãos: Conselho Tutelar, Educação, Assistência Social, Saúde, Polícia e demais participantes conforme lista de presença em anexo.
-
-**1. ABERTURA:**
-A reunião foi iniciada por **Dra. Elaine Santos (Assistência Social)**, que deu as boas-vindas a todos os presentes e destacou a importância da articulação intersetorial para a garantia de direitos de crianças e adolescentes.
-
-**2. OBJETIVO DA REUNIÃO:**
-Alinhamento técnico do fluxo de atendimento de casos de violação de direitos, criação de canais de comunicação direta de emergência e parametrização do uso do TIO System no colegiado intersetorial do município.
-
-**3. PARTICIPANTES:**
-(Listar nome completo, órgão e função)
-
-* Dra. Amanda Cruz, Dr. Thiago Mendes – Conselho Tutelar
-* Prof. Marcos Lima, Profa. Sandra Souza – Educação
-* Dra. Elaine Santos, Dr. Rafael Costa – Assistência Social
-* Enf. Luciana Neves, Dr. Ricardo Araújo – Saúde
-* Delegada Patrícia Viana, Sgt. Oliveira – Polícia
-* Outros: Dr. Marcelo Ramos (Ministério Público)
-
-**4. PAUTA:**
-* Apresentação das atualizações de conformidade do TIO System.
-* Definição de prazos máximos para atendimento a encaminhamentos em regime de urgência.
-* Pactuação técnica do fluxo de encaminhamentos entre CRAS, CREAS, Escolas e Unidades Básicas de Saúde (UBS).
-
-**5. DISCUSSÃO DOS CASOS / TEMAS:**
-Foi amplamente debatido o aumento de denúncias recebidas via Disque 100 de evasão escolar no último bimestre. Os representantes da Educação informaram que iniciaram busca ativa intensificada, porém dependem do suporte assistencial para famílias com extrema vulnerabilidade financeira. A Assistência Social mapeou os bairros de maior incidência e designou equipes volantes do CRAS para priorizar essas visitas. Também foi frisada a importância do sigilo absoluto das discussões de prontuário, com a ativação de proteções visuais nos computadores compartilhados.
-
-**6. ENCAMINHAMENTOS E DELIBERAÇÕES:**
-(Descrever as decisões tomadas, responsabilidades e prazos)
-
-* Busca ativa intersetorial nos bairros de alta evasão com visitas conjuntas CRAS e Conselho Tutelar.
-* Responsável: Assistência Social e Conselho Tutelar | Prazo: 30/06/2026
-
-* Cruzamento de dados de frequência escolar e cadastros do Bolsa Família para inserção em programas de segurança alimentar.
-* Responsável: Educação e Assistência Social | Prazo: 15/06/2026
-
-* Criação de formulário padrão para encaminhamento imediato de suspeitas de maus-tratos vindas das escolas diretamente para a Polícia Civil.
-* Responsável: Polícia Civil e Educação | Prazo: 22/06/2026
-
-**7. CONSIDERAÇÕES FINAIS:**
-Todos os órgãos pontuaram que a integração intersetorial em tempo real evita a revitimização dos assistidos e assegura uma rede ágil. Nova reunião técnica agendada para Julho de 2026.
-
-**8. ENCERRAMENTO:**
-Nada mais havendo a tratar, a reunião foi encerrada às **16:30** horas. Eu, **Dr. Rafael Costa (Assistência Social)**, lavrei a presente ata, que após lida e aprovada, será assinada por mim e pelos demais presentes.
-
----
-
-Responsável pela Ata: Dr. Rafael Costa
-
----
-
-Assinatura – Conselho Tutelar: Dra. Amanda Cruz
-
----
-
-Assinatura – Educação: Prof. Marcos Lima
-
----
-
-Assinatura – Assistência Social: Dra. Elaine Santos
-
----
-
-Assinatura – Saúde: Enf. Luciana Neves
-
----
-
-Assinatura – Polícia: Delegada Patrícia Viana
-
----
-
-Outros participantes: Dr. Marcelo Ramos (Ministério Público)
-
-**ANEXO:** Lista de Presença`,
-    dataCriacao: "2026-05-18T16:45:00Z",
-    organ: "Assistência Social (CRAS/CREAS)",
-    user: "Dra. Elaine Santos",
-    numero: 1
-  },
-  {
-    id: "gata-2",
-    date: "2026-06-12",
-    time: "09:30",
-    location: "Sala de Reuniões da Promotoria de Justiça",
-    coordinator: "Dr. Marcelo Ramos (Ministério Público)",
-    content: `# ATA DE REUNIÃO INTERSETORIAL
-
-Aos **12** dias do mês de **Junho** do ano de **2026**, às **09:30** horas, realizou-se a reunião intersetorial na (local da reunião) **Sala de Reuniões da Promotoria de Justiça**, com a presença dos representantes dos seguintes órgãos: Conselho Tutelar, Educação, Assistência Social, Saúde, Polícia e demais participantes conforme lista de presença em anexo.
-
-**1. ABERTURA:**
-A reunião foi iniciada por **Dr. Marcelo Ramos (Ministério Público)**, que deu as boas-vindas a todos os presentes e destacou a importância da articulação intersetorial para a garantia de direitos de crianças e adolescentes.
-
-**2. OBJETIVO DA REUNIÃO:**
-Definição de fluxos rápidos para aplicação de medidas de proteção e acolhimento em casos de violência doméstica grave identificados pela rede municipal de saúde e assistência social.
-
-**3. PARTICIPANTES:**
-(Listar nome completo, órgão e função)
-
-* Dra. Amanda Cruz – Conselho Tutelar
-* Profa. Sandra Souza – Educação
-* Dra. Elaine Santos – Assistência Social
-* Dr. Ricardo Araújo – Saúde
-* Delegada Patrícia Viana – Polícia
-* Outros: Dr. Marcelo Ramos (Ministério Público)
-
-**4. PAUTA:**
-* Articulação de medidas protetivas de urgência com afastamento do agressor.
-* Garantia de moradia e subsídio (Aluguel Social) para genitoras em situação de vulnerabilidade e seus filhos menores.
-* Encaminhamento psicológico imediato via CAPS para vítimas de traumas domésticos.
-
-**5. DISCUSSÃO DOS CASOS / TEMAS:**
-Discutiu-se a necessidade de um canal ultra-rápido de comunicação entre a Polícia Civil (Delegacia da Mulher), o Conselho Tutelar e a Assistência Social quando as crianças são testemunhas ou vítimas colaterais de agressões físicas na residência. O Ministério Público ressaltou que as tutelas de urgência de afastamento do lar de agressores serão processadas em menos de 24 horas pelo plantão judicial. A rede de saúde expôs a sobrecarga de atendimentos infantis com fundo de estresse pós-traumático e a necessidade de abertura de novos grupos de apoio especializado.
-
-**6. ENCAMINHAMENTOS E DELIBERAÇÕES:**
-(Descrever as decisões tomadas, responsabilidades e prazos)
-
-* Criação da Patrulha Integrada da Infância e Família para visitas de acolhimento e monitoria preventiva.
-* Responsável: Polícia Militar e Conselho Tutelar | Prazo: 10/07/2026
-
-* Encaminhamento prioritário ao programa de Aluguel Social do Município para os casos de maior risco mapeados pelo CREAS.
-* Responsável: Assistência Social | Prazo: 30/06/2026
-
-* Agendamento de consultas psicológicas infantis prioritárias nas UBSs locais com acompanhamento assistencial.
-* Responsável: Saúde e Educação | Prazo: 05/07/2026
-
-**7. CONSIDERAÇÕES FINAIS:**
-O Ministério Público se comprometeu a fiscalizar rigidamente o cumprimento dos prazos estabelecidos. A cooperação mútua é essencial para preservar vidas.
-
-**8. ENCERRAMENTO:**
-Nada mais havendo a tratar, a reunião foi encerrada às **11:45** horas. Eu, **Dr. Marcelo Ramos (Ministério Público)**, lavrei a presente ata, que após lida e aprovada, será assinada por mim e pelos demais presentes.
-
----
-
-Responsável pela Ata: Dr. Marcelo Ramos (MP)
-
----
-
-Assinatura – Conselho Tutelar: Dra. Amanda Cruz
-
----
-
-Assinatura – Educação: Profa. Sandra Souza
-
----
-
-Assinatura – Assistência Social: Dra. Elaine Santos
-
----
-
-Assinatura – Saúde: Dr. Ricardo Araújo
-
----
-
-Assinatura – Polícia: Delegada Patrícia Viana
-
----
-
-Outros participantes: Dr. Marcelo Ramos (Ministério Público)
-
-**ANEXO:** Lista de Presença`,
-    dataCriacao: "2026-06-12T12:00:00Z",
-    organ: "Ministério Público",
-    user: "Dr. Marcelo Ramos",
-    numero: 2
-  }
-];
-
 interface RegistroAtasProps {
   activeSession: UserSession;
   realTimeSync: boolean;
@@ -405,25 +230,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         const data = await response.json();
         
         if (isMounted && data.atas) {
-          if (data.atas.length === 0) {
-            const localStored = localStorage.getItem("tio_system_general_atas");
-            if (localStored) {
-              const parsed = JSON.parse(localStored);
-              if (parsed && parsed.length > 0) {
-                await fetch("/api/sync/atas", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ atas: parsed })
-                });
-              }
-            }
-          } else {
-            const serverJson = JSON.stringify(data.atas);
-            const localStored = localStorage.getItem("tio_system_general_atas");
-            if (serverJson !== localStored && data.atas.length > 0) {
-              setAtas(data.atas);
-              localStorage.setItem("tio_system_general_atas", serverJson);
-            }
+          const serverJson = JSON.stringify(data.atas);
+          const localStored = localStorage.getItem("tio_system_general_atas");
+          if (serverJson !== localStored) {
+            setAtas(data.atas);
+            localStorage.setItem("tio_system_general_atas", serverJson);
           }
         }
       } catch (err) {
@@ -432,7 +243,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     };
 
     syncAtasWithServer();
-    const intervalId = setInterval(syncAtasWithServer, 3500);
+    const intervalId = setInterval(syncAtasWithServer, 1500);
 
     return () => {
       isMounted = false;

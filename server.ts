@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { INITIAL_CASES, DEFAULT_GENERAL_ATAS } from "./src/data";
 
 const app = express();
 const PORT = 3000;
@@ -206,8 +207,8 @@ Retorne APENAS o conteúdo em Markdown, pronto para visualização, sem blocos d
 });
 
 // Real-time synchronization in-memory database endpoints
-let serverGeneralAtas: any[] = [];
-let serverCases: any[] = [];
+let serverGeneralAtas: any[] = [...DEFAULT_GENERAL_ATAS];
+let serverCases: any[] = [...INITIAL_CASES];
 
 // Endpoint to get synchronized general minutes (atas)
 app.get("/api/sync/atas", (req, res) => {
