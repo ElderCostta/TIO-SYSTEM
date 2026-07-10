@@ -246,8 +246,12 @@ function getFirestoreDb(): Firestore | null {
       });
     }
     
-    db = getFirestore();
-    console.log(`Firebase Admin inicializado com sucesso para o projeto ${config.projectId}`);
+    if (config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)") {
+      db = getFirestore(config.firestoreDatabaseId);
+    } else {
+      db = getFirestore();
+    }
+    console.log(`Firebase Admin inicializado com sucesso para o projeto ${config.projectId}, database: ${config.firestoreDatabaseId || "(default)"}`);
     return db;
   } catch (error) {
     console.error("Erro ao inicializar o Firebase Admin. O aplicativo continuará usando dados em memória:", error);
@@ -279,7 +283,14 @@ async function fetchCasesFromFirestore(): Promise<any[]> {
     snapshot.forEach(doc => {
       cases.push(doc.data());
     });
-    cases.sort((a, b) => new Date(a.dataCriacao).getTime() - new Date(b.dataCriacao).getTime());
+    cases.sort((a, b) => {
+      const dateA = new Date(a.dataCriacao || 0).getTime();
+      const dateB = new Date(b.dataCriacao || 0).getTime();
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateA - dateB;
+      }
+      return 0;
+    });
     serverCases = cases;
     return serverCases;
   } catch (error) {
@@ -312,9 +323,15 @@ async function fetchAtasFromFirestore(): Promise<any[]> {
       atas.push(doc.data());
     });
     atas.sort((a, b) => {
-      const dateA = new Date(a.date || a.dataCriacao).getTime();
-      const dateB = new Date(b.date || b.dataCriacao).getTime();
-      return dateB - dateA;
+      if (a.numero && b.numero) {
+        return b.numero - a.numero;
+      }
+      const dateA = new Date(a.date || a.dataCriacao || 0).getTime();
+      const dateB = new Date(b.date || b.dataCriacao || 0).getTime();
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateB - dateA;
+      }
+      return 0;
     });
     serverGeneralAtas = atas;
     return serverGeneralAtas;
@@ -444,6 +461,14 @@ async function syncAllAtasToFirestore(atas: any[]): Promise<void> {
     console.error("Erro ao sincronizar todas as atas no Firestore:", error);
   }
 }
+
+// Middleware to disable caching for sync endpoints to guarantee real-time updates on mobile
+app.use("/api/sync", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
 
 // Endpoint to get synchronized general minutes (atas)
 app.get("/api/sync/atas", async (req, res) => {

@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "Case": {
+      "title": "Case",
+      "description": "Casos ou encaminhamentos entre órgãos",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "dataCriacao": { "type": "string" }
+      },
+      "required": ["id"]
+    },
+    "GeneralAta": {
+      "title": "GeneralAta",
+      "description": "Atas gerais de reuniões registradas",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero": { "type": "number" },
+        "titulo": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "cases": {
+      "schema": "Case",
+      "description": "Coleção de casos de encaminhamento"
+    },
+    "atas": {
+      "schema": "GeneralAta",
+      "description": "Coleção de atas gerais de reunião"
+    }
+  }
+}
