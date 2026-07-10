@@ -262,15 +262,28 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     };
   }, [realTimeSync]);
 
-  const saveAtas = (updatedList: GeneralAta[]) => {
+  const saveAtas = (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
     setAtas(updatedList);
     localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
     
-    // Always push to server on save to ensure other logins and devices see updates immediately
-    fetch("/api/sync/atas", {
+    // Send specific delta to server if specified, otherwise send full payload
+    let url = "/api/sync/atas";
+    let body: any = { atas: updatedList };
+
+    if (action) {
+      if (action.type === "save") {
+        url = "/api/sync/atas/save";
+        body = { ata: action.payload };
+      } else if (action.type === "delete") {
+        url = "/api/sync/atas/delete";
+        body = { id: action.payload };
+      }
+    }
+
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ atas: updatedList })
+      body: JSON.stringify(body)
     })
     .then(res => res.json())
     .catch(err => console.error("Erro ao sincronizar atas no servidor:", err));
@@ -412,12 +425,13 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         user: activeSession.username,
         numero: nextNum
       };
-      saveAtas([newAta, ...atas]);
+      saveAtas([newAta, ...atas], { type: "save", payload: newAta });
       setIsCreating(false);
     } else if (isEditing && selectedAta) {
+      let updatedAta: GeneralAta | null = null;
       const updatedList = atas.map(a => {
         if (a.id === selectedAta.id) {
-          return {
+          updatedAta = {
             ...a,
             content: editorMarkdown,
             date: formDate || a.date,
@@ -425,10 +439,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             location: formLocation || a.location,
             coordinator: formCoordinator || a.coordinator
           };
+          return updatedAta;
         }
         return a;
       });
-      saveAtas(updatedList);
+      saveAtas(updatedList, { type: "save", payload: updatedAta || selectedAta });
       setIsEditing(false);
       setSelectedAta(null);
     }
@@ -438,7 +453,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const handleDeleteAta = (id: string) => {
     if (confirm("Tem certeza que deseja excluir permanentemente este registro de ata intersetorial do sistema? Esta ação é irreversível.")) {
       const filtered = atas.filter(a => a.id !== id);
-      saveAtas(filtered);
+      saveAtas(filtered, { type: "delete", payload: id });
       if (selectedAta?.id === id) {
         setSelectedAta(null);
       }

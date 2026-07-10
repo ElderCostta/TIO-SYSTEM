@@ -222,15 +222,31 @@ export default function App() {
       .catch(err => console.error("Erro inicial de sincronização de casos:", err));
   }, []);
 
-  const saveCasesToStorage = (updatedCases: Case[]) => {
+  const saveCasesToStorage = (updatedCases: Case[], action?: { type: "save" | "delete" | "reset"; payload: any }) => {
     setCases(updatedCases);
     localStorage.setItem("tio_system_cases", JSON.stringify(updatedCases));
     
-    // Always push to server on save to ensure other logins and devices see updates immediately
-    fetch("/api/sync/cases", {
+    // Send specific delta to server if specified, otherwise send full payload
+    let url = "/api/sync/cases";
+    let body: any = { cases: updatedCases };
+
+    if (action) {
+      if (action.type === "save") {
+        url = "/api/sync/cases/save";
+        body = { caseItem: action.payload };
+      } else if (action.type === "delete") {
+        url = "/api/sync/cases/delete";
+        body = { id: action.payload };
+      } else if (action.type === "reset") {
+        url = "/api/sync/cases/reset";
+        body = {};
+      }
+    }
+
+    fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cases: updatedCases })
+      body: JSON.stringify(body)
     })
     .then(res => res.json())
     .catch(err => console.error("Erro ao sincronizar casos no servidor:", err));
@@ -316,7 +332,7 @@ export default function App() {
   // 4. Action Handlers
   const handleSaveNewCase = (newCase: Case) => {
     const updated = [...cases, newCase];
-    saveCasesToStorage(updated);
+    saveCasesToStorage(updated, { type: "save", payload: newCase });
     
     // Add timeline notification
     const newNotif = {
@@ -333,7 +349,7 @@ export default function App() {
 
   const handleUpdateCase = (updatedCase: Case) => {
     const updated = cases.map(c => c.id === updatedCase.id ? updatedCase : c);
-    saveCasesToStorage(updated);
+    saveCasesToStorage(updated, { type: "save", payload: updatedCase });
   };
 
   const handleDeleteCase = (id: string, e: React.MouseEvent) => {
@@ -341,7 +357,7 @@ export default function App() {
     if (window.confirm("Deseja realmente apagar este caso do sistema? Esta ação é irreversível.")) {
       const deletedCase = cases.find(c => c.id === id);
       const updated = cases.filter(c => c.id !== id);
-      saveCasesToStorage(updated);
+      saveCasesToStorage(updated, { type: "delete", payload: id });
 
       const newNotif = {
         id: Date.now().toString(),
@@ -357,7 +373,7 @@ export default function App() {
   };
 
   const handleResetData = () => {
-    saveCasesToStorage(INITIAL_CASES);
+    saveCasesToStorage(INITIAL_CASES, { type: "reset", payload: null });
     setSelectedCaseId(null);
     setActiveTab("dashboard");
     

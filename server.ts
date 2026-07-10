@@ -215,11 +215,34 @@ app.get("/api/sync/atas", (req, res) => {
   res.json({ atas: serverGeneralAtas });
 });
 
-// Endpoint to update synchronized general minutes (atas)
+// Endpoint to update synchronized general minutes (atas) - kept for fallback
 app.post("/api/sync/atas", (req, res) => {
   const { atas } = req.body;
   if (Array.isArray(atas)) {
     serverGeneralAtas = atas;
+  }
+  res.json({ success: true, atas: serverGeneralAtas });
+});
+
+// Endpoint to save or update a single general minute (ata)
+app.post("/api/sync/atas/save", (req, res) => {
+  const { ata } = req.body;
+  if (ata && typeof ata === "object" && ata.id) {
+    const existingIndex = serverGeneralAtas.findIndex(a => a.id === ata.id);
+    if (existingIndex !== -1) {
+      serverGeneralAtas[existingIndex] = ata;
+    } else {
+      serverGeneralAtas = [ata, ...serverGeneralAtas];
+    }
+  }
+  res.json({ success: true, atas: serverGeneralAtas });
+});
+
+// Endpoint to delete a single general minute (ata)
+app.post("/api/sync/atas/delete", (req, res) => {
+  const { id } = req.body;
+  if (id) {
+    serverGeneralAtas = serverGeneralAtas.filter(a => a.id !== id);
   }
   res.json({ success: true, atas: serverGeneralAtas });
 });
@@ -229,12 +252,41 @@ app.get("/api/sync/cases", (req, res) => {
   res.json({ cases: serverCases });
 });
 
-// Endpoint to update synchronized cases
+// Endpoint to update synchronized cases - kept for fallback
 app.post("/api/sync/cases", (req, res) => {
   const { cases } = req.body;
   if (Array.isArray(cases)) {
     serverCases = cases;
   }
+  res.json({ success: true, cases: serverCases });
+});
+
+// Endpoint to save or update a single case
+app.post("/api/sync/cases/save", (req, res) => {
+  const { caseItem } = req.body;
+  if (caseItem && typeof caseItem === "object" && caseItem.id) {
+    const existingIndex = serverCases.findIndex(c => c.id === caseItem.id);
+    if (existingIndex !== -1) {
+      serverCases[existingIndex] = caseItem;
+    } else {
+      serverCases.push(caseItem);
+    }
+  }
+  res.json({ success: true, cases: serverCases });
+});
+
+// Endpoint to delete a single case
+app.post("/api/sync/cases/delete", (req, res) => {
+  const { id } = req.body;
+  if (id) {
+    serverCases = serverCases.filter(c => c.id !== id);
+  }
+  res.json({ success: true, cases: serverCases });
+});
+
+// Endpoint to reset cases to original defaults
+app.post("/api/sync/cases/reset", (req, res) => {
+  serverCases = [...INITIAL_CASES];
   res.json({ success: true, cases: serverCases });
 });
 
