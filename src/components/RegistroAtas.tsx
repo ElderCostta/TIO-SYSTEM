@@ -216,7 +216,18 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     }
 
     setAtas(loaded);
-  }, []);
+
+    // Always fetch latest general ATAs from server immediately to sync across different logins/devices
+    fetch("/api/sync/atas")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.atas) {
+          setAtas(data.atas);
+          localStorage.setItem("tio_system_general_atas", JSON.stringify(data.atas));
+        }
+      })
+      .catch(err => console.error("Erro inicial de sincronização de atas:", err));
+  }, [activeSession.username]);
 
   // Real-time synchronization polling for general minutes
   React.useEffect(() => {
@@ -255,15 +266,14 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     setAtas(updatedList);
     localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
     
-    if (realTimeSync) {
-      fetch("/api/sync/atas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ atas: updatedList })
-      })
-      .then(res => res.json())
-      .catch(err => console.error("Erro ao sincronizar atas no servidor:", err));
-    }
+    // Always push to server on save to ensure other logins and devices see updates immediately
+    fetch("/api/sync/atas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ atas: updatedList })
+    })
+    .then(res => res.json())
+    .catch(err => console.error("Erro ao sincronizar atas no servidor:", err));
   };
 
   // Live Sync form changes into Markdown text

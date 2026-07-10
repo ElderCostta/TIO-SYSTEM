@@ -209,20 +209,31 @@ export default function App() {
       setCases(INITIAL_CASES);
       localStorage.setItem("tio_system_cases", JSON.stringify(INITIAL_CASES));
     }
+
+    // Always fetch latest cases from server on startup/login to ensure freshness across devices and logins
+    fetch("/api/sync/cases")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.cases) {
+          setCases(data.cases);
+          localStorage.setItem("tio_system_cases", JSON.stringify(data.cases));
+        }
+      })
+      .catch(err => console.error("Erro inicial de sincronização de casos:", err));
   }, []);
 
   const saveCasesToStorage = (updatedCases: Case[]) => {
     setCases(updatedCases);
     localStorage.setItem("tio_system_cases", JSON.stringify(updatedCases));
-    if (realTimeSync) {
-      fetch("/api/sync/cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cases: updatedCases })
-      })
-      .then(res => res.json())
-      .catch(err => console.error("Erro ao sincronizar casos no servidor:", err));
-    }
+    
+    // Always push to server on save to ensure other logins and devices see updates immediately
+    fetch("/api/sync/cases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cases: updatedCases })
+    })
+    .then(res => res.json())
+    .catch(err => console.error("Erro ao sincronizar casos no servidor:", err));
   };
 
   // 3. Simulated user logins
