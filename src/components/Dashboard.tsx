@@ -177,7 +177,7 @@ export default function Dashboard({ cases, onSelectCase, onNavigateToTab, safeMo
       {/* Info Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Card 1 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-slate-200/80">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-500/40 hover:-translate-y-1">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Casos em Rede</span>
             <h3 className="text-3xl font-bold text-slate-900">{activeCases} <span className="text-sm font-medium text-slate-400">ativos</span></h3>
@@ -189,7 +189,7 @@ export default function Dashboard({ cases, onSelectCase, onNavigateToTab, safeMo
         </div>
 
         {/* Card 2 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-slate-200/80">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-500/40 hover:-translate-y-1">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Reuniões Intersetoriais</span>
             <h3 className="text-3xl font-bold text-slate-900">{totalMeetingsCount}</h3>
@@ -203,7 +203,7 @@ export default function Dashboard({ cases, onSelectCase, onNavigateToTab, safeMo
         </div>
 
         {/* Card 3 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-slate-200/80">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-500/40 hover:-translate-y-1">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Metas da Rede</span>
             <h3 className="text-3xl font-bold text-slate-900">{completionRate}%</h3>
@@ -217,7 +217,7 @@ export default function Dashboard({ cases, onSelectCase, onNavigateToTab, safeMo
         </div>
 
         {/* Card 4 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-slate-200/80">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-500/40 hover:-translate-y-1">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ações Atrasadas</span>
             <h3 className={`text-3xl font-bold ${overdueCount > 0 ? "text-rose-600" : "text-slate-900"}`}>{overdueCount}</h3>

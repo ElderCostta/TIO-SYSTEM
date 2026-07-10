@@ -1448,7 +1448,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 return (
                   <div
                     key={a.id}
-                    className="bg-white rounded-3xl border border-slate-200/70 p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group"
+                    className="bg-white rounded-3xl border border-slate-200/70 p-5 shadow-sm hover:shadow-lg hover:shadow-emerald-500/5 hover:border-emerald-500/40 hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between group"
                   >
                     <div>
                       {/* Top ribbon */}

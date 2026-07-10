@@ -27,7 +27,8 @@ import {
   Shield,
   Trash2,
   Wifi,
-  WifiOff
+  WifiOff,
+  Download
 } from "lucide-react";
 
 // Professional 3D Page Turn animation variants
@@ -71,6 +72,41 @@ export default function App() {
   const [cases, setCases] = React.useState<Case[]>([]);
   const [activeTab, setActiveTab] = React.useState<string>("dashboard"); // "dashboard" | "casos" | "nova-reuniao"
   const [selectedCaseId, setSelectedCaseId] = React.useState<string | null>(null);
+  const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = React.useState<any>(null);
+  const [showInstallModal, setShowInstallModal] = React.useState<boolean>(false);
+  
+  // Listen for PWA installation prompt
+  React.useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      console.log("PWA instalado com sucesso!");
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`PWA user choice outcome: ${outcome}`);
+      setDeferredPrompt(null);
+    } else {
+      setShowInstallModal(true);
+    }
+  };
   
   // State for LGPD Screen-Shield / Anti-vazamento (defaults to true for safety)
   const [safeMode, setSafeMode] = React.useState<boolean>(() => {
@@ -152,6 +188,14 @@ export default function App() {
 
   // 2. Load and Sync LocalStorage
   React.useEffect(() => {
+    // Clear old mock/example data if present to ensure clean slate
+    const clearedMock = localStorage.getItem("tio_system_cleared_mock_v3");
+    if (!clearedMock) {
+      localStorage.removeItem("tio_system_cases");
+      localStorage.removeItem("tio_system_general_atas");
+      localStorage.setItem("tio_system_cleared_mock_v3", "true");
+    }
+
     const stored = localStorage.getItem("tio_system_cases");
     if (stored) {
       try {
@@ -442,16 +486,32 @@ export default function App() {
             <button
               key={tab.id}
               onClick={tab.action}
-              className={`relative px-5 py-2.5 rounded-xl text-xs font-bold transition-colors duration-200 cursor-pointer select-none z-10 ${
-                tab.isActive ? "text-slate-950" : "text-slate-500 hover:text-slate-900"
+              onMouseEnter={() => setHoveredTab(tab.id)}
+              onMouseLeave={() => setHoveredTab(null)}
+              className={`relative px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer select-none z-10 focus:outline-none ${
+                tab.isActive 
+                  ? "text-emerald-800" 
+                  : hoveredTab === tab.id 
+                    ? "text-emerald-600" 
+                    : "text-slate-500"
               }`}
               id={`nav-${tab.id}`}
             >
               {tab.isActive && (
                 <motion.div
                   layoutId="activeTabIndicatorDesktop"
-                  className="absolute inset-0 bg-white rounded-xl shadow-sm border border-slate-100/50 -z-10"
+                  className="absolute inset-0 bg-white rounded-xl shadow-sm border-2 border-emerald-500/30 -z-10"
                   transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              {hoveredTab === tab.id && !tab.isActive && (
+                <motion.div
+                  layoutId="hoverTabIndicatorDesktop"
+                  className="absolute inset-0 bg-emerald-50/50 rounded-xl border border-emerald-500/20 -z-10"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 450, damping: 25 }}
                 />
               )}
               {tab.label}
@@ -546,6 +606,18 @@ export default function App() {
             <span className="md:hidden">{safeMode ? "LGPD" : "LGPD"}</span>
           </button>
 
+          {/* PWA Install Button */}
+          <button
+            onClick={handleInstallApp}
+            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-sm flex items-center gap-2 font-bold text-xs select-none cursor-pointer border border-emerald-500/20"
+            id="btn-install-pwa"
+            title="Instalar Aplicativo no Computador (PWA)"
+          >
+            <Download size={14} className="animate-bounce" />
+            <span className="hidden md:inline">Instalar App</span>
+            <span className="md:hidden font-semibold">Baixar</span>
+          </button>
+
           <button
             onClick={handleResetData}
             title="Restaurar banco de dados"
@@ -578,15 +650,31 @@ export default function App() {
           <button
             key={tab.id}
             onClick={tab.action}
-            className={`relative flex-1 py-2 text-xs font-bold rounded-lg transition-colors duration-200 cursor-pointer select-none z-10 ${
-              tab.isActive ? "text-slate-900" : "text-slate-500"
+            onMouseEnter={() => setHoveredTab(tab.id)}
+            onMouseLeave={() => setHoveredTab(null)}
+            className={`relative flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-300 cursor-pointer select-none z-10 focus:outline-none ${
+              tab.isActive 
+                ? "text-emerald-800" 
+                : hoveredTab === tab.id 
+                  ? "text-emerald-600" 
+                  : "text-slate-500"
             }`}
           >
             {tab.isActive && (
               <motion.div
                 layoutId="activeTabIndicatorMobile"
-                className="absolute inset-0 bg-slate-100 rounded-lg -z-10"
+                className="absolute inset-0 bg-emerald-50 rounded-lg border border-emerald-500/20 -z-10"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+            {hoveredTab === tab.id && !tab.isActive && (
+              <motion.div
+                layoutId="hoverTabIndicatorMobile"
+                className="absolute inset-0 bg-emerald-50/40 rounded-lg border border-emerald-500/10 -z-10"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ type: "spring", stiffness: 450, damping: 25 }}
               />
             )}
             {tab.label}
@@ -800,7 +888,7 @@ export default function App() {
                         <div
                           key={c.id}
                           onClick={() => setSelectedCaseId(c.id)}
-                          className="bg-white border border-slate-100 hover:border-slate-200 hover:shadow-md rounded-3xl p-6 transition-all flex flex-col justify-between cursor-pointer group relative overflow-hidden"
+                          className="bg-white border border-slate-100 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-1 rounded-3xl p-6 transition-all duration-300 flex flex-col justify-between cursor-pointer group relative overflow-hidden"
                           id={`case-card-${c.id}`}
                         >
                           <div className="space-y-4">
@@ -940,6 +1028,83 @@ export default function App() {
         </div>
       </footer>
 
+      {/* PWA Installation Instructions Modal */}
+      <AnimatePresence>
+        {showInstallModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden"
+            >
+              <div className="bg-gradient-to-r from-teal-850 to-emerald-700 p-6 text-white relative">
+                <h3 className="text-lg font-bold">Instalar TIOSYSTEM</h3>
+                <p className="text-xs text-teal-100/90 mt-1">
+                  Adicione o sistema diretamente à sua Área de Trabalho ou Tela Inicial
+                </p>
+                <button
+                  onClick={() => setShowInstallModal(false)}
+                  className="absolute top-6 right-6 text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition-all cursor-pointer"
+                >
+                  <Plus size={18} className="rotate-45" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="flex gap-3.5 items-start bg-emerald-50/50 border border-emerald-100/50 p-4 rounded-2xl">
+                  <Download className="text-emerald-600 shrink-0 mt-0.5 animate-bounce" size={20} />
+                  <div className="text-xs text-slate-600 leading-relaxed">
+                    <p className="font-bold text-slate-800 text-sm mb-1">Como Funciona?</p>
+                    O TIOSYSTEM funciona como um aplicativo nativo no computador (PWA). É extremamente rápido, abre em tela cheia e não depende de download em lojas de apps.
+                  </div>
+                </div>
+
+                <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
+                  <div>
+                    <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5">
+                      💻 No Computador (Chrome, Edge, Opera):
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 pl-1">
+                      <li>Procure pelo ícone de <strong className="text-emerald-700">Instalação (Seta para baixo)</strong> na barra de endereços do navegador (ao lado do botão de favoritar).</li>
+                      <li>Ou abra o <strong className="text-emerald-700">Menu (três pontos)</strong> do navegador, selecione <strong className="text-emerald-700">"Salvar e compartilhar"</strong> e clique em <strong className="text-emerald-700">"Instalar aplicativo..."</strong>.</li>
+                    </ol>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5">
+                      📱 No iPhone / iPad (Safari):
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 pl-1">
+                      <li>Toque no botão de <strong className="text-emerald-700">Compartilhar</strong> (ícone de quadrado com seta para cima).</li>
+                      <li>Role a lista e clique em <strong className="text-emerald-700">"Adicionar à Tela de Início"</strong>.</li>
+                    </ol>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-3">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5">
+                      🤖 No Android (Chrome):
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1 pl-1">
+                      <li>Abra o <strong className="text-emerald-700">Menu (três pontos)</strong> no canto superior direito.</li>
+                      <li>Selecione <strong className="text-emerald-700">"Instalar aplicativo"</strong> ou <strong className="text-emerald-700">"Adicionar à tela inicial"</strong>.</li>
+                    </ol>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end">
+                  <button
+                    onClick={() => setShowInstallModal(false)}
+                    className="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    Entendi
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
