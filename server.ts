@@ -1,8 +1,8 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, writeBatch, Firestore } from "firebase/firestore";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { INITIAL_CASES, DEFAULT_GENERAL_ATAS } from "./src/data";
@@ -234,27 +234,19 @@ function getFirestoreDb(): Firestore | null {
       return null;
     }
 
-    // Set the environment variable for database selection
-    if (config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)") {
-      process.env.FIRESTORE_DATABASE = config.firestoreDatabaseId;
-    }
-
-    // Try initializing firebase-admin
+    // Try initializing firebase client SDK
+    let appInstance;
     if (getApps().length === 0) {
-      initializeApp({
-        projectId: config.projectId,
-      });
+      appInstance = initializeApp(config);
+    } else {
+      appInstance = getApp();
     }
     
-    if (config.firestoreDatabaseId && config.firestoreDatabaseId !== "(default)") {
-      db = getFirestore(config.firestoreDatabaseId);
-    } else {
-      db = getFirestore();
-    }
-    console.log(`Firebase Admin inicializado com sucesso para o projeto ${config.projectId}, database: ${config.firestoreDatabaseId || "(default)"}`);
+    db = getFirestore(appInstance, config.firestoreDatabaseId);
+    console.log(`Firebase Client SDK inicializado com sucesso para o projeto ${config.projectId}, database: ${config.firestoreDatabaseId || "(default)"}`);
     return db;
   } catch (error) {
-    console.error("Erro ao inicializar o Firebase Admin. O aplicativo continuará usando dados em memória:", error);
+    console.error("Erro ao inicializar o Firebase Client SDK. O aplicativo continuará usando dados em memória:", error);
     db = null;
     return null;
   }
@@ -266,12 +258,12 @@ async function fetchCasesFromFirestore(): Promise<any[]> {
     return serverCases;
   }
   try {
-    const snapshot = await firestore.collection("cases").get();
+    const snapshot = await getDocs(collection(firestore, "cases"));
     if (snapshot.empty) {
       console.log("Banco de dados 'cases' vazio. Populando com casos iniciais...");
-      const batch = firestore.batch();
+      const batch = writeBatch(firestore);
       for (const item of INITIAL_CASES) {
-        const docRef = firestore.collection("cases").doc(item.id);
+        const docRef = doc(firestore, "cases", item.id);
         batch.set(docRef, item);
       }
       await batch.commit();
@@ -280,8 +272,8 @@ async function fetchCasesFromFirestore(): Promise<any[]> {
     }
 
     const cases: any[] = [];
-    snapshot.forEach(doc => {
-      cases.push(doc.data());
+    snapshot.forEach(docSnap => {
+      cases.push(docSnap.data());
     });
     cases.sort((a, b) => {
       const dateA = new Date(a.dataCriacao || 0).getTime();
@@ -305,12 +297,12 @@ async function fetchAtasFromFirestore(): Promise<any[]> {
     return serverGeneralAtas;
   }
   try {
-    const snapshot = await firestore.collection("atas").get();
+    const snapshot = await getDocs(collection(firestore, "atas"));
     if (snapshot.empty) {
       console.log("Banco de dados 'atas' vazio. Populando com atas iniciais...");
-      const batch = firestore.batch();
+      const batch = writeBatch(firestore);
       for (const item of DEFAULT_GENERAL_ATAS) {
-        const docRef = firestore.collection("atas").doc(item.id);
+        const docRef = doc(firestore, "atas", item.id);
         batch.set(docRef, item);
       }
       await batch.commit();
@@ -319,8 +311,8 @@ async function fetchAtasFromFirestore(): Promise<any[]> {
     }
 
     const atas: any[] = [];
-    snapshot.forEach(doc => {
-      atas.push(doc.data());
+    snapshot.forEach(docSnap => {
+      atas.push(docSnap.data());
     });
     atas.sort((a, b) => {
       if (a.numero && b.numero) {
@@ -352,7 +344,7 @@ async function saveCaseToFirestore(caseItem: any): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    await firestore.collection("cases").doc(caseItem.id).set(caseItem);
+    await setDoc(doc(firestore, "cases", caseItem.id), caseItem);
     console.log(`Caso ${caseItem.id} salvo com sucesso no Firestore.`);
   } catch (error) {
     console.error(`Erro ao salvar caso ${caseItem.id} no Firestore:`, error);
@@ -365,7 +357,7 @@ async function deleteCaseFromFirestore(id: string): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    await firestore.collection("cases").doc(id).delete();
+    await deleteDoc(doc(firestore, "cases", id));
     console.log(`Caso ${id} deletado com sucesso do Firestore.`);
   } catch (error) {
     console.error(`Erro ao deletar caso ${id} do Firestore:`, error);
@@ -378,16 +370,16 @@ async function resetCasesInFirestore(): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    const snapshot = await firestore.collection("cases").get();
-    const batch = firestore.batch();
-    snapshot.forEach(doc => {
-      batch.delete(doc.ref);
+    const snapshot = await getDocs(collection(firestore, "cases"));
+    const batch = writeBatch(firestore);
+    snapshot.forEach(docSnap => {
+      batch.delete(docSnap.ref);
     });
     await batch.commit();
 
-    const insertBatch = firestore.batch();
+    const insertBatch = writeBatch(firestore);
     for (const item of INITIAL_CASES) {
-      const docRef = firestore.collection("cases").doc(item.id);
+      const docRef = doc(firestore, "cases", item.id);
       insertBatch.set(docRef, item);
     }
     await insertBatch.commit();
@@ -408,7 +400,7 @@ async function saveAtaToFirestore(ata: any): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    await firestore.collection("atas").doc(ata.id).set(ata);
+    await setDoc(doc(firestore, "atas", ata.id), ata);
     console.log(`Ata ${ata.id} salva com sucesso no Firestore.`);
   } catch (error) {
     console.error(`Erro ao salvar ata ${ata.id} no Firestore:`, error);
@@ -421,7 +413,7 @@ async function deleteAtaFromFirestore(id: string): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    await firestore.collection("atas").doc(id).delete();
+    await deleteDoc(doc(firestore, "atas", id));
     console.log(`Ata ${id} deletada com sucesso do Firestore.`);
   } catch (error) {
     console.error(`Erro ao deletar ata ${id} do Firestore:`, error);
@@ -433,9 +425,9 @@ async function syncAllCasesToFirestore(cases: any[]): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    const batch = firestore.batch();
+    const batch = writeBatch(firestore);
     for (const item of cases) {
-      const docRef = firestore.collection("cases").doc(item.id);
+      const docRef = doc(firestore, "cases", item.id);
       batch.set(docRef, item);
     }
     await batch.commit();
@@ -450,9 +442,9 @@ async function syncAllAtasToFirestore(atas: any[]): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    const batch = firestore.batch();
+    const batch = writeBatch(firestore);
     for (const item of atas) {
-      const docRef = firestore.collection("atas").doc(item.id);
+      const docRef = doc(firestore, "atas", item.id);
       batch.set(docRef, item);
     }
     await batch.commit();
