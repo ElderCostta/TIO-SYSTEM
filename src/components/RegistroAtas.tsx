@@ -24,6 +24,59 @@ import {
 import { GeneralAta, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
 
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  serverTimestamp 
+} from "firebase/firestore";
+import { db } from "../firebase";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 // Portuguese date words helper
 const getPortugueseDateInWords = (dateStr: string) => {
   if (!dateStr) return { day: "____", month: "____________________", year: "______" };
@@ -184,109 +237,117 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [formEncerradoAs, setFormEncerradoAs] = React.useState("11:30");
   const [formSecretario, setFormSecretario] = React.useState(activeSession.username);
 
-  // Load and Sync from LocalStorage
+  // Load and Sync from LocalStorage and Firestore real-time subscription
   React.useEffect(() => {
+    // 1. Immediate visual feedback from localStorage
     const stored = localStorage.getItem("tio_system_general_atas");
-    let loaded: GeneralAta[] = [];
     if (stored) {
       try {
-        loaded = JSON.parse(stored);
+        setAtas(JSON.parse(stored));
       } catch (e) {
-        loaded = DEFAULT_GENERAL_ATAS;
+        console.error("Erro ao ler atas locais:", e);
       }
-    } else {
-      loaded = DEFAULT_GENERAL_ATAS;
     }
 
-    // Ensure all ATAs have a sequential "numero", sorted oldest to newest for assigning
-    const needsNumbering = loaded.some(a => typeof a.numero !== "number");
-    if (needsNumbering) {
-      const sorted = [...loaded].sort((a, b) => {
-        return new Date(a.dataCriacao).getTime() - new Date(b.dataCriacao).getTime();
+    // 2. Real-time subscription to Firestore collection
+    const q = collection(db, "atas");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const lista = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        } as GeneralAta;
       });
-      sorted.forEach((a, idx) => {
-        a.numero = idx + 1;
+
+      // Sort client-side by dataCriacao descending
+      const sorted = [...lista].sort((a, b) => {
+        const timeA = a.dataCriacao ? new Date(a.dataCriacao).getTime() : 0;
+        const timeB = b.dataCriacao ? new Date(b.dataCriacao).getTime() : 0;
+        return timeB - timeA;
       });
-      const mapIdToNum = new Map(sorted.map(a => [a.id, a.numero]));
-      loaded = loaded.map(a => ({
-        ...a,
-        numero: mapIdToNum.get(a.id) || 1
-      }));
-      localStorage.setItem("tio_system_general_atas", JSON.stringify(loaded));
-    }
 
-    setAtas(loaded);
+      if (sorted.length === 0) {
+        // Seed database with default general atas if empty
+        DEFAULT_GENERAL_ATAS.forEach(async (ata) => {
+          try {
+            await setDoc(doc(db, "atas", ata.id), {
+              id: ata.id,
+              date: ata.date,
+              time: ata.time,
+              location: ata.location,
+              coordinator: ata.coordinator,
+              content: ata.content,
+              dataCriacao: ata.dataCriacao,
+              organ: ata.organ,
+              user: ata.user,
+              numero: ata.numero || 1,
+              createdAt: serverTimestamp()
+            });
+          } catch (err) {
+            console.error("Erro ao semear atas default:", err);
+          }
+        });
+      } else {
+        setAtas(sorted);
+        localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "atas");
+    });
 
-    // Always fetch latest general ATAs from server immediately to sync across different logins/devices
-    fetch("/api/sync/atas")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.atas) {
-          setAtas(data.atas);
-          localStorage.setItem("tio_system_general_atas", JSON.stringify(data.atas));
-        }
-      })
-      .catch(err => console.error("Erro inicial de sincronização de atas:", err));
+    return () => unsubscribe();
   }, [activeSession.username]);
 
-  // Real-time synchronization polling for general minutes
-  React.useEffect(() => {
-    if (!realTimeSync) return;
-
-    let isMounted = true;
-    
-    const syncAtasWithServer = async () => {
-      try {
-        const response = await fetch("/api/sync/atas");
-        const data = await response.json();
-        
-        if (isMounted && data.atas) {
-          const serverJson = JSON.stringify(data.atas);
-          const localStored = localStorage.getItem("tio_system_general_atas");
-          if (serverJson !== localStored) {
-            setAtas(data.atas);
-            localStorage.setItem("tio_system_general_atas", serverJson);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao puxar atas sincronizadas:", err);
-      }
-    };
-
-    syncAtasWithServer();
-    const intervalId = setInterval(syncAtasWithServer, 1500);
-
-    return () => {
-      isMounted = false;
-      clearInterval(intervalId);
-    };
-  }, [realTimeSync]);
-
-  const saveAtas = (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
+  const saveAtas = async (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
+    // Update local state and localStorage for optimistic UI response
     setAtas(updatedList);
     localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
-    
-    // Send specific delta to server if specified, otherwise send full payload
-    let url = "/api/sync/atas";
-    let body: any = { atas: updatedList };
 
     if (action) {
-      if (action.type === "save") {
-        url = "/api/sync/atas/save";
-        body = { ata: action.payload };
-      } else if (action.type === "delete") {
-        url = "/api/sync/atas/delete";
-        body = { id: action.payload };
+      try {
+        if (action.type === "save") {
+          const ata = action.payload;
+          // Direct write to Firestore
+          await setDoc(doc(db, "atas", ata.id), {
+            id: ata.id,
+            date: ata.date || "",
+            time: ata.time || "",
+            location: ata.location || "",
+            coordinator: ata.coordinator || "",
+            content: ata.content || "",
+            dataCriacao: ata.dataCriacao || new Date().toISOString(),
+            organ: ata.organ || "",
+            user: ata.user || "",
+            numero: ata.numero || 1,
+            createdAt: serverTimestamp()
+          });
+
+          // Fallback server call to keep in sync
+          fetch("/api/sync/atas/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ata })
+          }).catch(err => console.error("Erro de fallback no server:", err));
+
+        } else if (action.type === "delete") {
+          const id = action.payload;
+          // Direct delete from Firestore
+          await deleteDoc(doc(db, "atas", id));
+
+          // Fallback server call to keep in sync
+          fetch("/api/sync/atas/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id })
+          }).catch(err => console.error("Erro de fallback no server:", err));
+        }
+      } catch (error) {
+        const op = action.type === "save" ? OperationType.WRITE : OperationType.DELETE;
+        const path = `atas/${action.payload.id || action.payload}`;
+        handleFirestoreError(error, op, path);
       }
     }
-
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    })
-    .then(res => res.json())
-    .catch(err => console.error("Erro ao sincronizar atas no servidor:", err));
   };
 
   // Live Sync form changes into Markdown text
