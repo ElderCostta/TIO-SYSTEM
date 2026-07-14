@@ -316,12 +316,12 @@ async function fetchAtasFromFirestore(): Promise<any[]> {
     });
     atas.sort((a, b) => {
       if (a.numero && b.numero) {
-        return b.numero - a.numero;
+        return a.numero - b.numero;
       }
       const dateA = new Date(a.date || a.dataCriacao || 0).getTime();
       const dateB = new Date(b.date || b.dataCriacao || 0).getTime();
       if (!isNaN(dateA) && !isNaN(dateB)) {
-        return dateB - dateA;
+        return dateA - dateB;
       }
       return 0;
     });

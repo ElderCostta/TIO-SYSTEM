@@ -260,11 +260,14 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         } as GeneralAta;
       });
 
-      // Sort client-side by dataCriacao descending
+      // Sort client-side by numerical order ascending
       const sorted = [...lista].sort((a, b) => {
+        if (a.numero && b.numero) {
+          return a.numero - b.numero;
+        }
         const timeA = a.dataCriacao ? new Date(a.dataCriacao).getTime() : 0;
         const timeB = b.dataCriacao ? new Date(b.dataCriacao).getTime() : 0;
-        return timeB - timeA;
+        return timeA - timeB;
       });
 
       if (sorted.length === 0) {
@@ -466,7 +469,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     if (isCreating) {
       const maxNum = atas.reduce((max, a) => (a.numero && a.numero > max ? a.numero : max), 0);
       const nextNum = maxNum + 1;
-      const formattedNum = `ATA${nextNum.toString().padStart(2, "0")}`;
+      const formattedNum = `Ata${nextNum.toString().padStart(2, "0")}`;
 
       let finalContent = editorMarkdown;
       const matchRegex = /^#\s+ATA\s+DE\s+REUNIÃO\s+INTERSETORIAL/i;
@@ -687,7 +690,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const handlePrintAta = (ata: GeneralAta) => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
-      const formattedAtaNum = ata.numero ? `ATA ${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
+      const formattedAtaNum = ata.numero ? `Ata${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
       const formattedDate = ata.date ? new Date(ata.date).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
@@ -1551,7 +1554,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
                       {/* Info lines */}
                       <h3 className="font-sans font-bold text-sm text-slate-800 line-clamp-1 mb-3">
-                        {a.numero ? `ATA${a.numero.toString().padStart(2, "0")}` : "ATA"} - Reunião Intersetorial
+                        {a.numero ? `Ata${a.numero.toString().padStart(2, "0")}` : "Ata"} - Reunião Intersetorial
                       </h3>
 
                       <div className="space-y-2 text-xs text-slate-500 mb-4">
