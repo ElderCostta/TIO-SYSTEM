@@ -164,10 +164,20 @@ export default function App() {
   }, [realTimeSync]);
 
   // Simulated Login Session
-  const [session, setSession] = React.useState<UserSession>({
-    organ: "Conselho Tutelar",
-    role: "Administrador",
-    username: "Conselho Tutelar"
+  const [session, setSession] = React.useState<UserSession>(() => {
+    const stored = localStorage.getItem("tio_system_session_v1");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.error("Erro ao ler session do localStorage:", e);
+      }
+    }
+    return {
+      organ: "Conselho Tutelar",
+      role: "Administrador",
+      username: "Conselho Tutelar"
+    };
   });
 
   // Filters State
@@ -274,11 +284,14 @@ export default function App() {
       "Rede Geral": "Visualizar"
     };
 
-    setSession({
+    const sessionObj = {
       organ,
       username: namesByOrgan[organ],
       role: roleByOrgan[organ]
-    });
+    };
+
+    setSession(sessionObj);
+    localStorage.setItem("tio_system_session_v1", JSON.stringify(sessionObj));
 
     // Create a simulation notification
     const newNotif = {
@@ -290,7 +303,9 @@ export default function App() {
   };
 
   const handleUpdateSessionRole = (role: Role) => {
-    setSession({ ...session, role });
+    const updated = { ...session, role };
+    setSession(updated);
+    localStorage.setItem("tio_system_session_v1", JSON.stringify(updated));
   };
 
   const handleLoginSuccess = (initialOrgan: Organ) => {
@@ -317,16 +332,20 @@ export default function App() {
       "Rede Geral": "Visualizar"
     };
 
-    setSession({
+    const sessionObj = {
       organ: initialOrgan,
       username: namesByOrgan[initialOrgan],
       role: roleByOrgan[initialOrgan]
-    });
+    };
+
+    setSession(sessionObj);
+    localStorage.setItem("tio_system_session_v1", JSON.stringify(sessionObj));
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     localStorage.removeItem("tio_system_logged_in");
+    localStorage.removeItem("tio_system_session_v1");
   };
 
   // 4. Action Handlers

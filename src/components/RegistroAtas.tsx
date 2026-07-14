@@ -627,11 +627,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       const formattedAtaNum = ata.numero ? `ATA ${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
-      const formattedDate = new Date(ata.date).toLocaleDateString("pt-BR", {
+      const formattedDate = ata.date ? new Date(ata.date).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric"
-      });
+      }) : "Sem data";
       const formattedRegDate = new Date(ata.dataCriacao).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
@@ -1051,10 +1051,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const filteredAtas = atas.filter(a => {
     const q = searchQuery.toLowerCase();
     return (
-      a.date.toLowerCase().includes(q) ||
-      a.location.toLowerCase().includes(q) ||
-      a.coordinator.toLowerCase().includes(q) ||
-      a.content.toLowerCase().includes(q)
+      (a.date || "").toLowerCase().includes(q) ||
+      (a.location || "").toLowerCase().includes(q) ||
+      (a.coordinator || "").toLowerCase().includes(q) ||
+      (a.content || "").toLowerCase().includes(q)
     );
   });
 
@@ -1469,7 +1469,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="atas-registry-grid">
             {filteredAtas.length > 0 ? (
               filteredAtas.map(a => {
-                const dayLabel = a.date.split("-").reverse().join("/");
+                const dayLabel = a.date ? a.date.split("-").reverse().join("/") : "Sem data";
                 return (
                   <div
                     key={a.id}
