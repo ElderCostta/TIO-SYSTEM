@@ -1,6 +1,6 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import { FileText, Copy, Check, X, Printer, Edit3, Eye, Save } from "lucide-react";
+import { FileText, Copy, Check, X, Printer, Edit3, Eye, Save, Download } from "lucide-react";
 
 interface AtaEditorModalProps {
   isOpen: boolean;
@@ -530,14 +530,27 @@ export default function AtaEditorModal({
             </button>
 
             {!readOnly && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer"
-                id="btn-save-editor-ata"
-              >
-                <Save size={16} />
-                <span>Salvar Documento</span>
-              </button>
+              <>
+                <button
+                  onClick={handleSave}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl text-sm transition-all cursor-pointer"
+                  id="btn-save-editor-ata"
+                >
+                  <Save size={16} />
+                  <span>Apenas Salvar</span>
+                </button>
+                <button
+                  onClick={() => {
+                    handleSave();
+                    setTimeout(() => handlePrint(), 150);
+                  }}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-all shadow-md cursor-pointer"
+                  id="btn-save-download-editor-ata"
+                >
+                  <Download size={16} />
+                  <span>Salvar e Baixar PDF</span>
+                </button>
+              </>
             )}
           </div>
         </div>

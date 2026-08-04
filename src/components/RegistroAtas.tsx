@@ -19,7 +19,8 @@ import {
   Eye, 
   Save, 
   Undo2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Download
 } from "lucide-react";
 import { GeneralAta, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
@@ -464,8 +465,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     setActiveTab("markdown"); // For editing existing, directly load text mode
   };
 
-  // Save ATA to system
-  const handleSaveAta = () => {
+  // Save ATA to system (with option to save and download PDF)
+  const handleSaveAta = (downloadPdf: boolean = true) => {
+    let savedAtaObj: GeneralAta | null = null;
+
     if (isCreating) {
       const maxNum = atas.reduce((max, a) => (a.numero && a.numero > max ? a.numero : max), 0);
       const nextNum = maxNum + 1;
@@ -489,13 +492,13 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         user: activeSession.username,
         numero: nextNum
       };
+      savedAtaObj = newAta;
       saveAtas([newAta, ...atas], { type: "save", payload: newAta });
       setIsCreating(false);
     } else if (isEditing && selectedAta) {
-      let updatedAta: GeneralAta | null = null;
       const updatedList = atas.map(a => {
         if (a.id === selectedAta.id) {
-          updatedAta = {
+          savedAtaObj = {
             ...a,
             content: editorMarkdown,
             date: formDate || a.date,
@@ -503,13 +506,21 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             location: formLocation || a.location,
             coordinator: formCoordinator || a.coordinator
           };
-          return updatedAta;
+          return savedAtaObj;
         }
         return a;
       });
-      saveAtas(updatedList, { type: "save", payload: updatedAta || selectedAta });
+      savedAtaObj = savedAtaObj || selectedAta;
+      saveAtas(updatedList, { type: "save", payload: savedAtaObj });
       setIsEditing(false);
       setSelectedAta(null);
+    }
+
+    if (downloadPdf && savedAtaObj) {
+      const ataToPrint = savedAtaObj;
+      setTimeout(() => {
+        handlePrintAta(ataToPrint);
+      }, 150);
     }
   };
 
@@ -1447,7 +1458,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             )}
 
             {/* SAVE ACTION BAR */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 bg-white">
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100 bg-white">
               <button
                 type="button"
                 onClick={() => { setIsCreating(false); setIsEditing(false); setSelectedAta(null); }}
@@ -1457,11 +1468,21 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               </button>
               <button
                 type="button"
-                onClick={handleSaveAta}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer select-none"
+                onClick={() => handleSaveAta(false)}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+                title="Salvar apenas no banco de dados sem abrir janela de PDF"
               >
                 <Save size={14} />
-                <span>Registrar e Gravar no Sistema</span>
+                <span>Apenas Salvar no Sistema</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSaveAta(true)}
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer select-none"
+                title="Salvar registro e gerar/baixar em PDF imediatamente"
+              >
+                <Download size={14} />
+                <span>Salvar como PDF e Baixar</span>
               </button>
             </div>
           </div>
