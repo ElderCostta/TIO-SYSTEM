@@ -238,19 +238,35 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [formEncerradoAs, setFormEncerradoAs] = React.useState("11:30");
   const [formSecretario, setFormSecretario] = React.useState(activeSession.username);
 
-  // Load and Sync from LocalStorage and Firestore real-time subscription
+  // Load and Sync from LocalStorage, Server API, and Firestore real-time subscription
   React.useEffect(() => {
+    let isMounted = true;
+
     // 1. Immediate visual feedback from localStorage
     const stored = localStorage.getItem("tio_system_general_atas");
     if (stored) {
       try {
-        setAtas(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAtas(parsed);
+        }
       } catch (e) {
         console.error("Erro ao ler atas locais:", e);
       }
     }
 
-    // 2. Real-time subscription to Firestore collection
+    // 2. Fallback fetch from Server API sync endpoint
+    fetch("/api/sync/atas")
+      .then(res => res.json())
+      .then(data => {
+        if (isMounted && data && Array.isArray(data.atas) && data.atas.length > 0) {
+          setAtas(data.atas);
+          localStorage.setItem("tio_system_general_atas", JSON.stringify(data.atas));
+        }
+      })
+      .catch(err => console.error("Erro ao carregar atas do servidor API:", err));
+
+    // 3. Real-time subscription to Firestore collection
     const q = collection(db, "atas");
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map(doc => {
@@ -272,35 +288,42 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
       });
 
       if (sorted.length === 0) {
-        // Seed database with default general atas if empty
-        DEFAULT_GENERAL_ATAS.forEach(async (ata) => {
-          try {
-            await setDoc(doc(db, "atas", ata.id), {
-              id: ata.id,
-              date: ata.date,
-              time: ata.time,
-              location: ata.location,
-              coordinator: ata.coordinator,
-              content: ata.content,
-              dataCriacao: ata.dataCriacao,
-              organ: ata.organ,
-              user: ata.user,
-              numero: ata.numero || 1,
-              createdAt: serverTimestamp()
-            });
-          } catch (err) {
-            console.error("Erro ao semear atas default:", err);
-          }
-        });
+        if (DEFAULT_GENERAL_ATAS.length > 0) {
+          // Seed database with default general atas if empty
+          DEFAULT_GENERAL_ATAS.forEach(async (ata) => {
+            try {
+              await setDoc(doc(db, "atas", ata.id), {
+                id: ata.id,
+                date: ata.date,
+                time: ata.time,
+                location: ata.location,
+                coordinator: ata.coordinator,
+                content: ata.content,
+                dataCriacao: ata.dataCriacao,
+                organ: ata.organ,
+                user: ata.user,
+                numero: ata.numero || 1,
+                createdAt: serverTimestamp()
+              });
+            } catch (err) {
+              console.error("Erro ao semear atas default:", err);
+            }
+          });
+        }
       } else {
-        setAtas(sorted);
-        localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
+        if (isMounted) {
+          setAtas(sorted);
+          localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
+        }
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "atas");
+      console.warn("Aviso Firestore onSnapshot atas (usando fallback API/local):", error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [activeSession.username]);
 
   const saveAtas = async (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
@@ -309,10 +332,17 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
 
     if (action) {
-      try {
-        if (action.type === "save") {
-          const ata = action.payload;
-          // Direct write to Firestore
+      if (action.type === "save") {
+        const ata = action.payload;
+        // Server sync API call first to ensure persistence
+        fetch("/api/sync/atas/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ata })
+        }).catch(err => console.error("Erro no salvamento da ata no servidor:", err));
+
+        // Direct write to Firestore
+        try {
           await setDoc(doc(db, "atas", ata.id), {
             id: ata.id,
             date: ata.date || "",
@@ -326,30 +356,24 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             numero: ata.numero || 1,
             createdAt: serverTimestamp()
           });
-
-          // Fallback server call to keep in sync
-          fetch("/api/sync/atas/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ata })
-          }).catch(err => console.error("Erro de fallback no server:", err));
-
-        } else if (action.type === "delete") {
-          const id = action.payload;
-          // Direct delete from Firestore
-          await deleteDoc(doc(db, "atas", id));
-
-          // Fallback server call to keep in sync
-          fetch("/api/sync/atas/delete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id })
-          }).catch(err => console.error("Erro de fallback no server:", err));
+        } catch (err) {
+          console.error("Erro no setDoc Firestore para ata:", err);
         }
-      } catch (error) {
-        const op = action.type === "save" ? OperationType.WRITE : OperationType.DELETE;
-        const path = `atas/${action.payload.id || action.payload}`;
-        handleFirestoreError(error, op, path);
+      } else if (action.type === "delete") {
+        const id = action.payload;
+        // Server sync API call first
+        fetch("/api/sync/atas/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        }).catch(err => console.error("Erro na exclusão da ata no servidor:", err));
+
+        // Direct delete from Firestore
+        try {
+          await deleteDoc(doc(db, "atas", id));
+        } catch (err) {
+          console.error("Erro no deleteDoc Firestore para ata:", err);
+        }
       }
     }
   };

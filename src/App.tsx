@@ -198,14 +198,6 @@ export default function App() {
 
   // 2. Load and Sync LocalStorage
   React.useEffect(() => {
-    // Clear old mock/example data if present to ensure clean slate
-    const clearedMock = localStorage.getItem("tio_system_cleared_mock_v3");
-    if (!clearedMock) {
-      localStorage.removeItem("tio_system_cases");
-      localStorage.removeItem("tio_system_general_atas");
-      localStorage.setItem("tio_system_cleared_mock_v3", "true");
-    }
-
     const stored = localStorage.getItem("tio_system_cases");
     if (stored) {
       try {
