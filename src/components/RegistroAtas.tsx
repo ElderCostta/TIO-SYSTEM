@@ -288,7 +288,36 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
       });
 
       if (sorted.length === 0) {
-        if (DEFAULT_GENERAL_ATAS.length > 0) {
+        // If Firestore is empty, check if we have locally saved ATAs to push to cloud
+        const localStored = localStorage.getItem("tio_system_general_atas");
+        if (localStored) {
+          try {
+            const localAtas: GeneralAta[] = JSON.parse(localStored);
+            if (Array.isArray(localAtas) && localAtas.length > 0) {
+              localAtas.forEach(async (ata) => {
+                try {
+                  await setDoc(doc(db, "atas", ata.id), {
+                    id: ata.id,
+                    date: ata.date || "",
+                    time: ata.time || "",
+                    location: ata.location || "",
+                    coordinator: ata.coordinator || "",
+                    content: ata.content || "",
+                    dataCriacao: ata.dataCriacao || new Date().toISOString(),
+                    organ: ata.organ || "",
+                    user: ata.user || "",
+                    numero: ata.numero || 1,
+                    createdAt: serverTimestamp()
+                  });
+                } catch (err) {
+                  console.error("Erro ao sincronizar ata local para o Firestore:", err);
+                }
+              });
+            }
+          } catch (e) {
+            console.error("Erro ao ler atas locais no fallback:", e);
+          }
+        } else if (DEFAULT_GENERAL_ATAS.length > 0) {
           // Seed database with default general atas if empty
           DEFAULT_GENERAL_ATAS.forEach(async (ata) => {
             try {
