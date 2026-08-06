@@ -294,25 +294,26 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           try {
             const localAtas: GeneralAta[] = JSON.parse(localStored);
             if (Array.isArray(localAtas) && localAtas.length > 0) {
-              localAtas.forEach(async (ata) => {
-                try {
-                  await setDoc(doc(db, "atas", ata.id), {
-                    id: ata.id,
-                    date: ata.date || "",
-                    time: ata.time || "",
-                    location: ata.location || "",
-                    coordinator: ata.coordinator || "",
-                    content: ata.content || "",
-                    dataCriacao: ata.dataCriacao || new Date().toISOString(),
-                    organ: ata.organ || "",
-                    user: ata.user || "",
-                    numero: ata.numero || 1,
-                    createdAt: serverTimestamp()
-                  });
-                } catch (err) {
-                  console.error("Erro ao sincronizar ata local para o Firestore:", err);
-                }
-              });
+             for (const ata of localAtas) {
+  try {
+    await setDoc(doc(db, "atas", String(ata.id)), {
+      id: ata.id,
+      date: ata.date || "",
+      time: ata.time || "",
+      location: ata.location || "",
+      coordinator: ata.coordinator || "",
+      content: ata.content || "",
+      dataCriacao: ata.dataCriacao || new Date().toISOString(),
+      organ: ata.organ || "",
+      user: ata.user || "",
+      numero: ata.numero || 1,
+      createdAt: serverTimestamp()
+    });
+    console.log("Ata enviada para o Firestore:", ata.id);
+  } catch (err) {
+    console.error("Erro ao sincronizar ata local para o Firestore:", err);
+  }
+}
             }
           } catch (e) {
             console.error("Erro ao ler atas locais no fallback:", e);
