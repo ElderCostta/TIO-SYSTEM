@@ -502,7 +502,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
 
     return `# ATA DE REUNIÃO INTERSETORIAL
 
-**ATA Nº:** ${(caseItem.reunioes?.indexOf(meeting) !== -1 ? (caseItem.reunioes?.indexOf(meeting) ?? 0) + 1 : 1).toString().padStart(3, '0')}/${new Date(meeting.date).getFullYear()}
+**ATA Nº:** ${(caseItem.reunioes?.indexOf(meeting) !== -1 ? (caseItem.reunioes?.indexOf(meeting) ?? 0) + 1 : 1).toString().padStart(3, '0')}/${meeting.date ? meeting.date.split("-")[0] : new Date().getFullYear()}
 **Data:** ${dateFormatted}
 **Horário:** ${meeting.time} às ________
 **Local:** ${meeting.location}

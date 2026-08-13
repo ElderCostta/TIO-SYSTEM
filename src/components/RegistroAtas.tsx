@@ -78,10 +78,24 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+// Helper to format YYYY-MM-DD cleanly as DD/MM/YYYY without timezone shift
+const formatDateBR = (dateStr?: string) => {
+  if (!dateStr) return "Sem data";
+  const clean = dateStr.split("T")[0];
+  const parts = clean.split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    const [y, m, d] = parts;
+    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString("pt-BR");
+};
+
 // Portuguese date words helper
 const getPortugueseDateInWords = (dateStr: string) => {
   if (!dateStr) return { day: "____", month: "____________________", year: "______" };
-  const parts = dateStr.split("-");
+  const clean = dateStr.split("T")[0];
+  const parts = clean.split("-");
   if (parts.length !== 3) return { day: "____", month: "____________________", year: "______" };
   const day = parseInt(parts[2], 10).toString().padStart(2, "0");
   const year = parts[0];
@@ -294,26 +308,25 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           try {
             const localAtas: GeneralAta[] = JSON.parse(localStored);
             if (Array.isArray(localAtas) && localAtas.length > 0) {
-             for (const ata of localAtas) {
-  try {
-    await setDoc(doc(db, "atas", String(ata.id)), {
-      id: ata.id,
-      date: ata.date || "",
-      time: ata.time || "",
-      location: ata.location || "",
-      coordinator: ata.coordinator || "",
-      content: ata.content || "",
-      dataCriacao: ata.dataCriacao || new Date().toISOString(),
-      organ: ata.organ || "",
-      user: ata.user || "",
-      numero: ata.numero || 1,
-      createdAt: serverTimestamp()
-    });
-    console.log("Ata enviada para o Firestore:", ata.id);
-  } catch (err) {
-    console.error("Erro ao sincronizar ata local para o Firestore:", err);
-  }
-}
+              localAtas.forEach(async (ata) => {
+                try {
+                  await setDoc(doc(db, "atas", ata.id), {
+                    id: ata.id,
+                    date: ata.date || "",
+                    time: ata.time || "",
+                    location: ata.location || "",
+                    coordinator: ata.coordinator || "",
+                    content: ata.content || "",
+                    dataCriacao: ata.dataCriacao || new Date().toISOString(),
+                    organ: ata.organ || "",
+                    user: ata.user || "",
+                    numero: ata.numero || 1,
+                    createdAt: serverTimestamp()
+                  });
+                } catch (err) {
+                  console.error("Erro ao sincronizar ata local para o Firestore:", err);
+                }
+              });
             }
           } catch (e) {
             console.error("Erro ao ler atas locais no fallback:", e);
@@ -514,6 +527,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const handleStartEdit = (ata: GeneralAta) => {
     setSelectedAta(ata);
     setEditorMarkdown(ata.content);
+    setFormDate(ata.date || new Date().toISOString().split("T")[0]);
+    setFormTime(ata.time || "09:00");
+    setFormLocation(ata.location || "");
+    setFormCoordinator(ata.coordinator || activeSession.username);
     setIsCreating(false);
     setIsEditing(true);
     setActiveTab("markdown"); // For editing existing, directly load text mode
@@ -756,18 +773,14 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       const formattedAtaNum = ata.numero ? `Ata${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
-      const formattedDate = ata.date ? new Date(ata.date).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      }) : "Sem data";
-      const formattedRegDate = new Date(ata.dataCriacao).toLocaleDateString("pt-BR", {
+      const formattedDate = formatDateBR(ata.date);
+      const formattedRegDate = ata.dataCriacao ? new Date(ata.dataCriacao).toLocaleDateString("pt-BR", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit"
-      });
+      }) : "Sem data";
 
       printWindow.document.write(`
         <html>
@@ -1566,8 +1579,19 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 </button>
                 <button
                   type="button"
-                  onClick={() => handlePrintAta({ id: "temp", content: editorMarkdown, date: "", time: "", location: "", coordinator: "", dataCriacao: "", organ: "", user: "" })}
-                  className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-all"
+                  onClick={() => handlePrintAta({ 
+                    id: selectedAta?.id || "temp", 
+                    content: editorMarkdown, 
+                    date: formDate, 
+                    time: formTime, 
+                    location: formLocation || "Não informado", 
+                    coordinator: formCoordinator || activeSession.username, 
+                    dataCriacao: selectedAta?.dataCriacao || new Date().toISOString(), 
+                    organ: selectedAta?.organ || activeSession.organ, 
+                    user: selectedAta?.user || activeSession.username,
+                    numero: selectedAta?.numero 
+                  })}
+                  className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-all cursor-pointer"
                   title="Imprimir documento de teste"
                 >
                   <Printer size={14} />
@@ -1608,7 +1632,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5" id="atas-registry-grid">
             {filteredAtas.length > 0 ? (
               filteredAtas.map(a => {
-                const dayLabel = a.date ? a.date.split("-").reverse().join("/") : "Sem data";
+                const dayLabel = formatDateBR(a.date);
                 return (
                   <div
                     key={a.id}
