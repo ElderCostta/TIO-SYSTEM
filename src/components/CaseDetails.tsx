@@ -2,6 +2,13 @@ import React from "react";
 import { Case, Referral, TimelineEvent, Attachment, Organ, Meeting } from "../types";
 import { ALL_ORGANS } from "../data";
 import { motion, AnimatePresence } from "motion/react";
+import { 
+  formatDateBR, 
+  getLocalTodayISO, 
+  extractYear, 
+  getPortugueseDateInWords, 
+  formatDateTimeBR 
+} from "../utils/dateUtils";
 
 // Crisp page-turn feel for subtabs
 const subTabFlipVariants = {
@@ -142,7 +149,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
 
   // New Meeting Form States
   const [showAddMeeting, setShowAddMeeting] = React.useState(false);
-  const [meetDate, setMeetDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const [meetDate, setMeetDate] = React.useState(getLocalTodayISO());
   const [meetTime, setMeetTime] = React.useState("10:00");
   const [meetLocation, setMeetLocation] = React.useState("Câmara Intersetorial de Proteção");
   const [meetPerson, setMeetPerson] = React.useState(activeSession.username);
@@ -184,7 +191,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
       organ: activeSession.organ,
       user: activeSession.username,
       title: "Nova Reunião & Lista de Presenças",
-      description: `Reunião Intersetorial realizada em ${meetDate.split('-').reverse().join('/')} às ${meetTime}. Órgãos presentes: ${meetPresentOrgans.join(", ")}. Coordenador: ${meetPerson} (${meetOrgan}).`,
+      description: `Reunião Intersetorial realizada em ${formatDateBR(meetDate)} às ${meetTime}. Órgãos presentes: ${meetPresentOrgans.join(", ")}. Coordenador: ${meetPerson} (${meetOrgan}).`,
       type: "reuniao"
     };
 
@@ -477,7 +484,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   };
 
   const generateDefaultAtaTemplate = (meeting: Meeting) => {
-    const dateFormatted = meeting.date.split('-').reverse().join('/');
+    const dateFormatted = formatDateBR(meeting.date);
+    const ataYear = extractYear(meeting.date);
     
     const presentOrgansList = meeting.presentOrgans || [];
     const ctRep = presentOrgansList.includes("Conselho Tutelar") ? `Representante de ${activeSession.organ === "Conselho Tutelar" ? activeSession.username : "Conselho Tutelar"}` : "______________________________________";
@@ -493,16 +501,16 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     const activeActions = caseItem.planoAcao || [];
     
     if (activeReferrals.length > 0) {
-      tableRows = activeReferrals.map(ref => `| ${ref.acao} | ${ref.orgaoResponsavel} | ${ref.prazo.split('-').reverse().join('/')} |`).join("\n");
+      tableRows = activeReferrals.map(ref => `| ${ref.acao} | ${ref.orgaoResponsavel} | ${formatDateBR(ref.prazo)} |`).join("\n");
     } else if (activeActions.length > 0) {
-      tableRows = activeActions.map(act => `| ${act.acao} | ${act.responsavel} | ${new Date(act.dataCriacao).toLocaleDateString("pt-BR")} |`).join("\n");
+      tableRows = activeActions.map(act => `| ${act.acao} | ${act.responsavel} | ${formatDateBR(act.dataCriacao)} |`).join("\n");
     } else {
       tableRows = "|                                              |             |       |\n|                                              |             |       |";
     }
 
     return `# ATA DE REUNIÃO INTERSETORIAL
 
-**ATA Nº:** ${(caseItem.reunioes?.indexOf(meeting) !== -1 ? (caseItem.reunioes?.indexOf(meeting) ?? 0) + 1 : 1).toString().padStart(3, '0')}/${meeting.date ? meeting.date.split("-")[0] : new Date().getFullYear()}
+**ATA Nº:** ${(caseItem.reunioes?.indexOf(meeting) !== -1 ? (caseItem.reunioes?.indexOf(meeting) ?? 0) + 1 : 1).toString().padStart(3, '0')}/${ataYear}
 **Data:** ${dateFormatted}
 **Horário:** ${meeting.time} às ________
 **Local:** ${meeting.location}
@@ -605,7 +613,7 @@ Assinatura: ____________________________________
     });
 
     const targetMeeting = caseItem.reunioes?.find(m => m.id === ataEditorMeetingId);
-    const meetingDateFormatted = targetMeeting ? targetMeeting.date.split('-').reverse().join('/') : "";
+    const meetingDateFormatted = targetMeeting ? formatDateBR(targetMeeting.date) : "";
 
     const newEvent: TimelineEvent = {
       id: `ev-ata-edit-${Date.now()}`,
@@ -1585,7 +1593,7 @@ Assinatura: ____________________________________
                         <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-3">
                           <div className="text-right">
                             <span className="text-[10px] font-bold text-slate-400 block uppercase">Prazo Pactuado</span>
-                            <span className="text-xs font-mono font-bold text-slate-700">{ref.prazo.split('-').reverse().join('/')}</span>
+                            <span className="text-xs font-mono font-bold text-slate-700">{formatDateBR(ref.prazo)}</span>
                           </div>
 
                           {/* Controls if authorized */}
@@ -1833,7 +1841,7 @@ Assinatura: ____________________________________
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Calendar size={16} className="text-slate-400" />
-                        <span className="text-sm font-bold text-slate-800">Reunião em {m.date.split('-').reverse().join('/')} às {m.time}</span>
+                        <span className="text-sm font-bold text-slate-800">Reunião em {formatDateBR(m.date)} às {m.time}</span>
                       </div>
                       <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-lg">
                         Coordenador: {m.responsiblePerson} ({m.responsibleOrgan})

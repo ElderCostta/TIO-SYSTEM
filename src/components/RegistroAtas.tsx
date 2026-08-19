@@ -24,6 +24,12 @@ import {
 } from "lucide-react";
 import { GeneralAta, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
+import { 
+  formatDateBR, 
+  getPortugueseDateInWords, 
+  getLocalTodayISO, 
+  formatDateTimeBR 
+} from "../utils/dateUtils";
 
 import { 
   collection, 
@@ -78,35 +84,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-// Helper to format YYYY-MM-DD cleanly as DD/MM/YYYY without timezone shift
-const formatDateBR = (dateStr?: string) => {
-  if (!dateStr) return "Sem data";
-  const clean = dateStr.split("T")[0];
-  const parts = clean.split("-");
-  if (parts.length === 3 && parts[0].length === 4) {
-    const [y, m, d] = parts;
-    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
-  }
-  const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString("pt-BR");
-};
-
-// Portuguese date words helper
-const getPortugueseDateInWords = (dateStr: string) => {
-  if (!dateStr) return { day: "____", month: "____________________", year: "______" };
-  const clean = dateStr.split("T")[0];
-  const parts = clean.split("-");
-  if (parts.length !== 3) return { day: "____", month: "____________________", year: "______" };
-  const day = parseInt(parts[2], 10).toString().padStart(2, "0");
-  const year = parts[0];
-  const monthNames = [
-    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-  ];
-  const monthIndex = parseInt(parts[1], 10) - 1;
-  const month = monthNames[monthIndex] || "____________________";
-  return { day, month, year };
-};
 
 // Initial template generator matching the user's exact structure
 const generateGlobalAtaTemplate = (data: {
@@ -231,7 +208,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [copied, setCopied] = React.useState(false);
 
   // Form Fields State (to help user pre-fill the template easily)
-  const [formDate, setFormDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const [formDate, setFormDate] = React.useState(getLocalTodayISO());
   const [formTime, setFormTime] = React.useState("09:00");
   const [formLocation, setFormLocation] = React.useState("");
   const [formCoordinator, setFormCoordinator] = React.useState(activeSession.username);
@@ -474,8 +451,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
   // Handle Create New ATA
   const handleStartCreate = () => {
+    const today = getLocalTodayISO();
     // Reset Form Fields
-    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormDate(today);
     setFormTime("09:00");
     setFormLocation("");
     setFormCoordinator(activeSession.username);
@@ -495,7 +473,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
     // Initial generated markdown
     const generatedText = generateGlobalAtaTemplate({
-      date: new Date().toISOString().split("T")[0],
+      date: today,
       time: "09:00",
       location: "",
       coordinator: activeSession.username,
@@ -527,13 +505,14 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const handleStartEdit = (ata: GeneralAta) => {
     setSelectedAta(ata);
     setEditorMarkdown(ata.content);
-    setFormDate(ata.date || new Date().toISOString().split("T")[0]);
+    const cleanDate = ata.date ? (ata.date.includes("T") ? ata.date.split("T")[0] : ata.date) : getLocalTodayISO();
+    setFormDate(cleanDate);
     setFormTime(ata.time || "09:00");
     setFormLocation(ata.location || "");
     setFormCoordinator(ata.coordinator || activeSession.username);
     setIsCreating(false);
     setIsEditing(true);
-    setActiveTab("markdown"); // For editing existing, directly load text mode
+    setActiveTab("markdown"); // For editing existing, load text mode with ability to switch
   };
 
   // Save ATA to system (with option to save and download PDF)
@@ -774,13 +753,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     if (printWindow) {
       const formattedAtaNum = ata.numero ? `Ata${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
       const formattedDate = formatDateBR(ata.date);
-      const formattedRegDate = ata.dataCriacao ? new Date(ata.dataCriacao).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      }) : "Sem data";
+      const formattedRegDate = formatDateTimeBR(ata.dataCriacao);
 
       printWindow.document.write(`
         <html>
@@ -1255,30 +1228,28 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               </div>
 
               {/* Tab Selector between Form Support and Pure Markdown */}
-              {isCreating && (
-                <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
-                  <button
-                    onClick={() => setActiveTab("form")}
-                    className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
-                      activeTab === "form" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-400 hover:text-slate-700"
-                    }`}
-                  >
-                    Formulário de Apoio
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("markdown")}
-                    className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
-                      activeTab === "markdown" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-400 hover:text-slate-700"
-                    }`}
-                  >
-                    Texto Livre
-                  </button>
-                </div>
-              )}
+              <div className="flex bg-slate-50 border border-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setActiveTab("form")}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
+                    activeTab === "form" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-400 hover:text-slate-700"
+                  }`}
+                >
+                  Formulário de Apoio
+                </button>
+                <button
+                  onClick={() => setActiveTab("markdown")}
+                  className={`px-3 py-1.5 text-[10px] font-extrabold uppercase rounded-lg transition-all cursor-pointer ${
+                    activeTab === "markdown" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-400 hover:text-slate-700"
+                  }`}
+                >
+                  Texto Livre
+                </button>
+              </div>
             </div>
 
             {/* FORM ASSISTANCE MODE */}
-            {activeTab === "form" && isCreating ? (
+            {activeTab === "form" ? (
               <div className="space-y-4 overflow-y-auto max-h-[60vh] pr-2">
                 
                 {/* Basic Metadata block */}

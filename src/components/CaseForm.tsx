@@ -1,6 +1,7 @@
 import React from "react";
 import { Case, Organ, Referral, Meeting } from "../types";
 import { ALL_ORGANS } from "../data";
+import { getLocalTodayISO, formatDateBR } from "../utils/dateUtils";
 import { 
   Plus, 
   Trash2, 
@@ -26,7 +27,7 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
   const [step, setStep] = React.useState<1 | 2 | 3 | 4>(1);
 
   // Form Field State: Meeting
-  const [meetingDate, setMeetingDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const [meetingDate, setMeetingDate] = React.useState(getLocalTodayISO());
   const [meetingTime, setMeetingTime] = React.useState("10:00");
   const [meetingLocation, setMeetingLocation] = React.useState("Câmara Intersetorial de Proteção");
   const [presentOrgans, setPresentOrgans] = React.useState<Organ[]>([activeSession.organ]);
@@ -244,7 +245,7 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
           organ: activeSession.organ,
           user: activeSession.username,
           title: "Reunião de Colegiado Registrada",
-          description: `Reunião presencial/online realizada em ${meetingDate} com ${presentOrgans.length} órgãos presentes.`,
+          description: `Reunião presencial/online realizada em ${formatDateBR(meetingDate)} com ${presentOrgans.length} órgãos presentes.`,
           type: "reuniao"
         },
         ...referrals.map((r, idx) => ({
@@ -253,7 +254,7 @@ export default function CaseForm({ onSaveCase, activeSession, onCancel }: CaseFo
           organ: r.orgaoResponsavel,
           user: "Sistema",
           title: "Encaminhamento Pactuado",
-          description: `Definida ação para o órgão ${r.orgaoResponsavel} com prazo até ${r.prazo.split('-').reverse().join('/')}.`,
+          description: `Definida ação para o órgão ${r.orgaoResponsavel} com prazo até ${formatDateBR(r.prazo)}.`,
           type: "encaminhamento" as const
         }))
       ],
