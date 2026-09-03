@@ -1,14 +1,16 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import { FileText, Copy, Check, X, Printer, Edit3, Eye, Save, Download } from "lucide-react";
+import { FileText, Copy, Check, X, Printer, Edit3, Eye, Save, Download, Camera, Upload, Trash2, ZoomIn, ImageIcon } from "lucide-react";
 
 interface AtaEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMarkdown: string;
-  onSave: (newMarkdown: string) => void;
+  onSave: (newMarkdown: string, listaPresencaUrl?: string, listaPresencaNome?: string) => void;
   readOnly: boolean;
   title?: string;
+  listaPresencaUrl?: string;
+  listaPresencaNome?: string;
 }
 
 export default function AtaEditorModal({
@@ -17,19 +19,26 @@ export default function AtaEditorModal({
   initialMarkdown,
   onSave,
   readOnly,
-  title = "Ata de Reunião Intersetorial"
+  title = "Ata de Reunião Intersetorial",
+  listaPresencaUrl,
+  listaPresencaNome
 }: AtaEditorModalProps) {
   const [markdown, setMarkdown] = React.useState(initialMarkdown);
   const [activeTab, setActiveTab] = React.useState<"preview" | "edit">("preview");
   const [copied, setCopied] = React.useState(false);
+  const [currentListaUrl, setCurrentListaUrl] = React.useState<string | undefined>(listaPresencaUrl);
+  const [currentListaNome, setCurrentListaNome] = React.useState<string | undefined>(listaPresencaNome);
+  const [zoomModalOpen, setZoomModalOpen] = React.useState(false);
 
   // Sync markdown with initialMarkdown when modal opens
   React.useEffect(() => {
     if (isOpen) {
       setMarkdown(initialMarkdown);
       setActiveTab(readOnly ? "preview" : "edit");
+      setCurrentListaUrl(listaPresencaUrl);
+      setCurrentListaNome(listaPresencaNome);
     }
-  }, [isOpen, initialMarkdown, readOnly]);
+  }, [isOpen, initialMarkdown, readOnly, listaPresencaUrl, listaPresencaNome]);
 
   if (!isOpen) return null;
 
@@ -37,6 +46,51 @@ export default function AtaEditorModal({
     navigator.clipboard.writeText(markdown);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleAttendancePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1600;
+        const MAX_HEIGHT = 1600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          setCurrentListaUrl(compressed);
+          setCurrentListaNome(file.name);
+        } else {
+          setCurrentListaUrl(base64);
+          setCurrentListaNome(file.name);
+        }
+      };
+      img.src = base64;
+    };
+    reader.readAsDataURL(file);
   };
 
   // Helper markdown compiler for printing
@@ -334,6 +388,84 @@ export default function AtaEditorModal({
                 color: #0f172a;
               }
 
+              /* Attendance list attachment */
+              .anexo-presenca-container {
+                margin-top: 36px;
+                border-top: 2px solid #0c4a80;
+                padding-top: 20px;
+                page-break-inside: avoid;
+              }
+              .anexo-presenca-header {
+                margin-bottom: 14px;
+              }
+              .anexo-tag {
+                display: inline-block;
+                background-color: #f1f5f9;
+                border: 1px solid #cbd5e1;
+                color: #0c4a80;
+                font-size: 9px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                padding: 3px 8px;
+                border-radius: 4px;
+                margin-bottom: 6px;
+                font-family: 'Inter', sans-serif;
+              }
+              .anexo-title {
+                font-size: 13px;
+                font-weight: 700;
+                color: #0f172a;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-family: 'Inter', sans-serif;
+                margin-bottom: 4px;
+              }
+              .anexo-subtitle {
+                font-size: 10px;
+                color: #64748b;
+                line-height: 1.4;
+              }
+              .anexo-image-wrapper {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                padding: 10px;
+                text-align: center;
+                margin-top: 10px;
+                page-break-inside: avoid;
+              }
+              .anexo-image {
+                max-width: 100%;
+                max-height: 520px;
+                object-fit: contain;
+                border-radius: 4px;
+                border: 1px solid #e2e8f0;
+              }
+              .anexo-image-caption {
+                margin-top: 8px;
+                font-size: 9.5px;
+                color: #64748b;
+                font-style: italic;
+              }
+              .anexo-placeholder-box {
+                background-color: #f8fafc;
+                border: 1px dashed #94a3b8;
+                border-radius: 8px;
+                padding: 16px;
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                color: #475569;
+                font-size: 11px;
+                line-height: 1.5;
+              }
+              .anexo-placeholder-icon {
+                font-size: 20px;
+                flex-shrink: 0;
+              }
+
               /* Footer validation */
               .document-footer {
                 margin-top: 60px;
@@ -396,6 +528,31 @@ export default function AtaEditorModal({
               ${compileMarkdownToPrintHtml(markdown)}
             </div>
 
+            <!-- Attendance List Attachment Section -->
+            <div class="anexo-presenca-container">
+              <div class="anexo-presenca-header">
+                <div class="anexo-tag">ANEXO OFICIAL</div>
+                <div class="anexo-title">COMPROVAÇÃO DE PRESENÇAS — LISTA DE PRESENÇA DA REUNIÃO</div>
+                <div class="anexo-subtitle">A validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digital consta abaixo:</div>
+              </div>
+
+              ${currentListaUrl ? `
+                <div class="anexo-image-wrapper">
+                  <img src="${currentListaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" />
+                  <div class="anexo-image-caption">
+                    Documento comprobatório digitalizado: ${currentListaNome || 'Lista_de_Presenca.jpg'}
+                  </div>
+                </div>
+              ` : `
+                <div class="anexo-placeholder-box">
+                  <div class="anexo-placeholder-icon">📋</div>
+                  <div class="anexo-placeholder-text">
+                    <strong>Lista de Presença Física Assinada:</strong> O documento original rubricado pelos membros e participantes presentes na reunião encontra-se devidamente arquivado junto à coordenação da rede intersetorial.
+                  </div>
+                </div>
+              `}
+            </div>
+
             <div class="document-footer">
               Este documento é um registro oficial gerado pelo TIO System.
             </div>
@@ -415,7 +572,7 @@ export default function AtaEditorModal({
   };
 
   const handleSave = () => {
-    onSave(markdown);
+    onSave(markdown, currentListaUrl, currentListaNome);
     onClose();
   };
 
@@ -478,24 +635,138 @@ export default function AtaEditorModal({
         )}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 font-sans bg-slate-50/30">
+        <div className="flex-1 overflow-y-auto p-6 font-sans bg-slate-50/30 space-y-4">
           {activeTab === "edit" && !readOnly ? (
-            <div className="h-full flex flex-col space-y-2">
-              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                Editor de Texto em Markdown (Edite livremente as lacunas):
-              </label>
-              <textarea
-                value={markdown}
-                onChange={(e) => setMarkdown(e.target.value)}
-                className="w-full flex-1 min-h-[45vh] p-4 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
-                placeholder="Insira o texto da ata..."
-                id="ata-markdown-editor-textarea"
-              />
+            <div className="flex flex-col space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                  Editor de Texto em Markdown (Edite livremente as lacunas):
+                </label>
+                <textarea
+                  value={markdown}
+                  onChange={(e) => setMarkdown(e.target.value)}
+                  className="w-full min-h-[36vh] p-4 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
+                  placeholder="Insira o texto da ata..."
+                  id="ata-markdown-editor-textarea"
+                />
+              </div>
+
+              {/* Attendance List Photo Attachment Section */}
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                      <Camera size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800">Foto da Lista de Presença da Reunião</h4>
+                      <p className="text-[11px] text-slate-500">
+                        Substitui as assinaturas manuais por anexo digital da folha física assinada
+                      </p>
+                    </div>
+                  </div>
+                  {currentListaUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentListaUrl(undefined);
+                        setCurrentListaNome(undefined);
+                      }}
+                      className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      <Trash2 size={13} /> Remover
+                    </button>
+                  )}
+                </div>
+
+                {currentListaUrl ? (
+                  <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <img
+                      src={currentListaUrl}
+                      alt="Lista de Presença Anexa"
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">
+                        {currentListaNome || "Lista_de_Presenca.jpg"}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                        <Check size={12} /> Comprovante vinculado para o PDF oficial
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setZoomModalOpen(true)}
+                      className="px-3 py-1.5 bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                    >
+                      <ZoomIn size={13} /> Ampliar
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center">
+                    <Upload size={20} className="text-slate-400" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-700 block">
+                        Clique para anexar ou tirar foto da lista de presenças
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        Formatos aceitos: JPG, PNG, WEBP (Comprimido com segurança)
+                      </span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAttendancePhotoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm prose prose-indigo max-w-none text-slate-800">
-              <div className="markdown-body select-text text-sm leading-relaxed space-y-4">
-                <ReactMarkdown>{markdown}</ReactMarkdown>
+            <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
+              <div className="prose prose-indigo max-w-none text-slate-800">
+                <div className="markdown-body select-text text-sm leading-relaxed space-y-4">
+                  <ReactMarkdown>{markdown}</ReactMarkdown>
+                </div>
+              </div>
+
+              {/* Attendance List Preview Block */}
+              <div className="pt-6 border-t border-slate-200/80">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
+                    Anexo Oficial
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 uppercase">
+                    Comprovação de Presenças — Lista Oficial
+                  </span>
+                </div>
+
+                {currentListaUrl ? (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-center bg-white p-2 rounded-lg border border-slate-100 max-h-[300px] overflow-hidden">
+                      <img
+                        src={currentListaUrl}
+                        alt="Lista de Presença Anexa"
+                        className="max-h-[280px] object-contain rounded"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                      <span className="truncate">{currentListaNome || "Lista_de_Presenca.jpg"}</span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomModalOpen(true)}
+                        className="text-indigo-600 hover:underline font-bold flex items-center gap-1 cursor-pointer text-xs"
+                      >
+                        <ZoomIn size={12} /> Ampliar imagem
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+                    Validação de presenças mediante a lista física arquivada junto à coordenação.
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -504,7 +775,7 @@ export default function AtaEditorModal({
         {/* Footer Actions */}
         <div className="flex items-center justify-between p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
           <div className="text-xs text-gray-400 font-mono">
-            {activeTab === "edit" ? "Modo de edição ativo" : "Pronto para cópia ou assinatura"}
+            {activeTab === "edit" ? "Modo de edição ativo" : "Pronto para cópia ou download em PDF"}
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -555,6 +826,31 @@ export default function AtaEditorModal({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Zoom Modal */}
+      {zoomModalOpen && currentListaUrl && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative max-w-4xl w-full max-h-[90vh] bg-slate-950 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-white/10">
+              <span className="text-xs font-bold">{currentListaNome || "Lista de Presença"}</span>
+              <button
+                type="button"
+                onClick={() => setZoomModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+              <img
+                src={currentListaUrl}
+                alt="Lista de Presença Ampliada"
+                className="max-h-full max-w-full object-contain rounded shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

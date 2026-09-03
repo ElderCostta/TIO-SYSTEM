@@ -21,7 +21,9 @@
         "numero": { "type": "number" },
         "titulo": { "type": "string" },
         "conteudo": { "type": "string" },
-        "date": { "type": "string" }
+        "date": { "type": "string" },
+        "listaPresencaUrl": { "type": "string" },
+        "listaPresencaNome": { "type": "string" }
       },
       "required": ["id"]
     }

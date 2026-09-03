@@ -65,6 +65,8 @@ export interface Meeting {
   responsibleOrgan: Organ;
   discussao: string;
   documentoAta?: string;
+  listaPresencaUrl?: string;
+  listaPresencaNome?: string;
 }
 
 export interface GeneralAta {
@@ -78,6 +80,8 @@ export interface GeneralAta {
   organ: string;
   user: string;
   numero?: number;
+  listaPresencaUrl?: string;
+  listaPresencaNome?: string;
 }
 
 export interface Case {

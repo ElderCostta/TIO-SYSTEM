@@ -10,7 +10,8 @@ import { INITIAL_CASES, DEFAULT_GENERAL_ATAS } from "./src/data";
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
 // Lazy-loaded Gemini client getter to prevent crash on startup if key is missing
 let aiClient: GoogleGenAI | null = null;
@@ -191,7 +192,7 @@ A ata em Markdown deve ser estruturada profissionalmente com os seguintes tópic
 2. Cabeçalho de Identificação (data, local, órgãos presentes)
 3. Relato do Caso e Discussão Intersetorial (síntese fluida e formal das discussões)
 4. Tabela de Encaminhamentos Pactuados (colunas: Ação, Órgão Responsável, Prazo, Prioridade)
-5. Encerramento formal e campo para assinaturas dos órgãos presentes.
+5. Encerramento formal informando que a comprovação e validação das presenças constam na Lista de Presença Oficial assinada e anexada ao registro.
 
 Retorne APENAS o conteúdo em Markdown, pronto para visualização, sem blocos de código com 'markdown' envolta, apenas o texto Markdown cru.`;
 

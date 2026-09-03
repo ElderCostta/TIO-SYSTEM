@@ -64,7 +64,11 @@ import {
   Upload,
   Calendar,
   UserCheck,
-  Award
+  Award,
+  Camera,
+  ZoomIn,
+  ImageIcon,
+  X
 } from "lucide-react";
 import AtaModal from "./AtaModal";
 import AtaEditorModal from "./AtaEditorModal";
@@ -143,6 +147,11 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [ataEditorMarkdown, setAtaEditorMarkdown] = React.useState("");
   const [ataEditorMeetingId, setAtaEditorMeetingId] = React.useState<string | null>(null);
   const [ataEditorReadOnly, setAtaEditorReadOnly] = React.useState(false);
+  const [ataEditorListaUrl, setAtaEditorListaUrl] = React.useState<string | undefined>(undefined);
+  const [ataEditorListaNome, setAtaEditorListaNome] = React.useState<string | undefined>(undefined);
+
+  // Zoom Modal for Attendance Photos
+  const [zoomPhotoModal, setZoomPhotoModal] = React.useState<{ url: string; title: string } | null>(null);
 
   // Secrecy Overriding State
   const [isSecrecyRevealed, setIsSecrecyRevealed] = React.useState(false);
@@ -156,6 +165,53 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [meetOrgan, setMeetOrgan] = React.useState<Organ>(activeSession.organ);
   const [meetDiscussion, setMeetDiscussion] = React.useState("");
   const [meetPresentOrgans, setMeetPresentOrgans] = React.useState<Organ[]>([activeSession.organ]);
+  const [meetListaPresencaUrl, setMeetListaPresencaUrl] = React.useState<string | undefined>(undefined);
+  const [meetListaPresencaNome, setMeetListaPresencaNome] = React.useState<string | undefined>(undefined);
+
+  const handleMeetPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1600;
+        const MAX_HEIGHT = 1600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          setMeetListaPresencaUrl(compressed);
+          setMeetListaPresencaNome(file.name);
+        } else {
+          setMeetListaPresencaUrl(base64);
+          setMeetListaPresencaNome(file.name);
+        }
+      };
+      img.src = base64;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleToggleMeetOrgan = (organ: Organ) => {
     if (meetPresentOrgans.includes(organ)) {
@@ -177,7 +233,9 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
       presentOrgans: meetPresentOrgans,
       responsiblePerson: meetPerson,
       responsibleOrgan: meetOrgan,
-      discussao: meetDiscussion
+      discussao: meetDiscussion,
+      listaPresencaUrl: meetListaPresencaUrl,
+      listaPresencaNome: meetListaPresencaNome
     };
 
     // Auto-generate default ATA text based on the user's requested template
@@ -206,6 +264,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     // Reset states
     setMeetDiscussion("");
     setMeetPresentOrgans([activeSession.organ]);
+    setMeetListaPresencaUrl(undefined);
+    setMeetListaPresencaNome(undefined);
     setShowAddMeeting(false);
   };
 
@@ -556,41 +616,23 @@ ${tableRows}
 - Todos os órgãos pactuantes se comprometem a acompanhar de forma prioritária as ações sob sua responsabilidade direta.
 - Os andamentos e respostas oficiais deverão ser inseridos e atualizados no TIO System para garantir o monitoramento ágil em tempo real.
 
-## 6. Encerramento
+## 6. Encerramento e Comprovação de Presença
 
-Nada mais havendo a tratar, a reunião foi encerrada, sendo lavrada a presente ata, que, após lida e aprovada, será assinada por todos os participantes.
+Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada a presente ata que, após lida e considerada conforme pelos presentes, tem a sua frequência e validação comprovadas pela Lista de Presença Oficial em anexo físico e digital.
 
-**Local:** ${meeting.location}
-
+**Local:** ${meeting.location}  
 **Data:** ${dateFormatted}
 
-### Assinaturas
-
-Nome: _________________________________________
-Órgão: Conselho Tutelar
-Assinatura: ____________________________________
-
-Nome: _________________________________________
-Órgão: Assistência Social (CRAS/CREAS)
-Assinatura: ____________________________________
-
-Nome: _________________________________________
-Órgão: Saúde
-Assinatura: ____________________________________
-
-Nome: _________________________________________
-Órgão: Educação
-Assinatura: ____________________________________
-
-Nome: _________________________________________
-Órgão: Polícia Militar/Polícia Civil
-Assinatura: ____________________________________
+---
+*A comprovação de presença dos órgãos e participantes desta reunião intersetorial dá-se mediante Lista de Presença Oficial rubricada e anexada ao registro.*
 `;
   };
 
   const handleOpenAtaEditor = (meeting: Meeting, readOnly: boolean = false) => {
     setAtaEditorMeetingId(meeting.id);
     setAtaEditorReadOnly(readOnly);
+    setAtaEditorListaUrl(meeting.listaPresencaUrl);
+    setAtaEditorListaNome(meeting.listaPresencaNome);
     if (meeting.documentoAta) {
       setAtaEditorMarkdown(meeting.documentoAta);
     } else {
@@ -599,14 +641,16 @@ Assinatura: ____________________________________
     setIsAtaEditorOpen(true);
   };
 
-  const handleSaveAtaEditor = (newMarkdown: string) => {
+  const handleSaveAtaEditor = (newMarkdown: string, listaUrl?: string, listaNome?: string) => {
     if (!ataEditorMeetingId) return;
 
     const updatedMeetings = (caseItem.reunioes || []).map(m => {
       if (m.id === ataEditorMeetingId) {
         return {
           ...m,
-          documentoAta: newMarkdown
+          documentoAta: newMarkdown,
+          listaPresencaUrl: listaUrl !== undefined ? listaUrl : m.listaPresencaUrl,
+          listaPresencaNome: listaNome !== undefined ? listaNome : m.listaPresencaNome
         };
       }
       return m;
@@ -1811,6 +1855,69 @@ Assinatura: ____________________________________
                       />
                     </div>
 
+                    {/* Attendance Photo Upload */}
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Camera size={15} className="text-emerald-600" />
+                          <span className="text-xs font-bold text-slate-700">Foto da Lista de Presença da Reunião</span>
+                        </div>
+                        {meetListaPresencaUrl && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMeetListaPresencaUrl(undefined);
+                              setMeetListaPresencaNome(undefined);
+                            }}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 size={12} /> Remover
+                          </button>
+                        )}
+                      </div>
+
+                      {meetListaPresencaUrl ? (
+                        <div className="flex items-center gap-3 bg-white p-2.5 rounded-lg border border-slate-200">
+                          <img
+                            src={meetListaPresencaUrl}
+                            alt="Lista de Presença"
+                            className="w-12 h-12 object-cover rounded border border-slate-200"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 truncate">
+                              {meetListaPresencaNome || "Lista_de_Presenca.jpg"}
+                            </p>
+                            <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
+                              <Check size={11} /> Documento oficial anexado
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setZoomPhotoModal({ url: meetListaPresencaUrl, title: meetListaPresencaNome || "Lista de Presença" })}
+                            className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1 px-2 py-1"
+                          >
+                            <ZoomIn size={12} /> Ver
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="border-2 border-dashed border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center">
+                          <Upload size={16} className="text-slate-400" />
+                          <span className="text-[11px] font-bold text-slate-600">
+                            Anexar foto da folha física de presenças assinada
+                          </span>
+                          <span className="text-[9px] text-slate-400">
+                            Substitui a necessidade de colher assinaturas individuais na ata gerada
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleMeetPhotoUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
                     <div className="flex justify-end gap-2.5">
                       <button
                         type="button"
@@ -1865,6 +1972,24 @@ Assinatura: ____________________________________
                         {m.discussao}
                       </p>
                     </div>
+
+                    {/* Attendance photo status banner if attached */}
+                    {m.listaPresencaUrl && (
+                      <div className="flex items-center justify-between p-3 bg-emerald-50/60 border border-emerald-200/80 rounded-xl text-xs">
+                        <div className="flex items-center gap-2 text-emerald-800 font-medium">
+                          <Camera size={14} className="text-emerald-600 shrink-0" />
+                          <span>Lista de Presença Assinada em anexo: <strong>{m.listaPresencaNome || "Documento digitalizado"}</strong></span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setZoomPhotoModal({ url: m.listaPresencaUrl!, title: `Lista de Presença - Reunião ${formatDateBR(m.date)}` })}
+                          className="flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-900 bg-white border border-emerald-200 px-2.5 py-1 rounded-lg text-[11px] shadow-sm cursor-pointer"
+                        >
+                          <ZoomIn size={12} />
+                          <span>Visualizar Foto</span>
+                        </button>
+                      </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 border-t border-slate-100 mt-2 gap-3">
                       <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
@@ -2039,7 +2164,34 @@ Assinatura: ____________________________________
         onSave={handleSaveAtaEditor}
         readOnly={ataEditorReadOnly}
         title={`Ata de Reunião - Caso ${caseItem.name}`}
+        listaPresencaUrl={ataEditorListaUrl}
+        listaPresencaNome={ataEditorListaNome}
       />
+
+      {/* Fullscreen Photo Zoom Modal */}
+      {zoomPhotoModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative max-w-4xl w-full max-h-[90vh] bg-slate-950 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-white/10">
+              <span className="text-xs font-bold">{zoomPhotoModal.title}</span>
+              <button
+                type="button"
+                onClick={() => setZoomPhotoModal(null)}
+                className="p-1 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+              <img
+                src={zoomPhotoModal.url}
+                alt="Foto Ampliada"
+                className="max-h-full max-w-full object-contain rounded shadow-lg"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

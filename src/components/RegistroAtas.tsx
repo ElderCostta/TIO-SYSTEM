@@ -20,7 +20,13 @@ import {
   Save, 
   Undo2,
   FileSpreadsheet,
-  Download
+  Download,
+  Camera,
+  Image as ImageIcon,
+  Paperclip,
+  Upload,
+  Maximize2,
+  ZoomIn
 } from "lucide-react";
 import { GeneralAta, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
@@ -155,38 +161,10 @@ ${data.encaminhamentos || "* ---\n\n* Responsável: __________________________ P
 **7. CONSIDERAÇÕES FINAIS:**
 ${data.consideracoes || "\n---\n\n---"}
 
-**8. ENCERRAMENTO:**
-Nada mais havendo a tratar, a reunião foi encerrada às **${data.encerradoAs || "______"}** horas. Eu, **${data.secretario || "________________________________________"}**, lavrei a presente ata, que após lida e aprovada, será assinada por mim e pelos demais presentes.
+**8. ENCERRAMENTO E VALIDAÇÃO DE PRESENÇAS:**
+Nada mais havendo a tratar, a reunião foi encerrada às **${data.encerradoAs || "______"}** horas. Eu, **${data.secretario || "________________________________________"}**, lavrei a presente ata, cuja comprovação e validação oficial de presenças dos representantes institucionais e convidados se dão mediante a **Lista de Presença** física devidamente assinada e anexada em fotografia a este registro.
 
----
-
-Responsável pela Ata
-
----
-
-Assinatura – Conselho Tutelar
-
----
-
-Assinatura – Educação
-
----
-
-Assinatura – Assistência Social
-
----
-
-Assinatura – Saúde
-
----
-
-Assinatura – Polícia
-
----
-
-Outros participantes
-
-**ANEXO:** Lista de Presença`;
+**ANEXO OBRIGATÓRIO:** Lista de Presença Oficial da Reunião (Fotografia/Documento Digitalizado Anexo)`;
 };
 
 interface RegistroAtasProps {
@@ -228,6 +206,58 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [formConsideracoes, setFormConsideracoes] = React.useState("");
   const [formEncerradoAs, setFormEncerradoAs] = React.useState("11:30");
   const [formSecretario, setFormSecretario] = React.useState(activeSession.username);
+
+  // Attendance List Photo Attachment State
+  const [listaPresencaUrl, setListaPresencaUrl] = React.useState<string | undefined>(undefined);
+  const [listaPresencaNome, setListaPresencaNome] = React.useState<string | undefined>(undefined);
+  const [previewImageModal, setPreviewImageModal] = React.useState<{ url: string; title: string } | null>(null);
+
+  // Compress & read photo of attendance list
+  const handleAttendancePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1600;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+          setListaPresencaUrl(dataUrl);
+          setListaPresencaNome(file.name);
+        } else {
+          setListaPresencaUrl(event.target?.result as string);
+          setListaPresencaNome(file.name);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAttendancePhoto = () => {
+    setListaPresencaUrl(undefined);
+    setListaPresencaNome(undefined);
+  };
 
   // Load and Sync from LocalStorage, Server API, and Firestore real-time subscription
   React.useEffect(() => {
@@ -495,6 +525,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     });
 
     setEditorMarkdown(generatedText);
+    setListaPresencaUrl(undefined);
+    setListaPresencaNome(undefined);
     setSelectedAta(null);
     setIsCreating(true);
     setIsEditing(false);
@@ -510,6 +542,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     setFormTime(ata.time || "09:00");
     setFormLocation(ata.location || "");
     setFormCoordinator(ata.coordinator || activeSession.username);
+    setListaPresencaUrl(ata.listaPresencaUrl);
+    setListaPresencaNome(ata.listaPresencaNome);
     setIsCreating(false);
     setIsEditing(true);
     setActiveTab("markdown"); // For editing existing, load text mode with ability to switch
@@ -540,7 +574,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         dataCriacao: new Date().toISOString(),
         organ: activeSession.organ,
         user: activeSession.username,
-        numero: nextNum
+        numero: nextNum,
+        listaPresencaUrl: listaPresencaUrl,
+        listaPresencaNome: listaPresencaNome
       };
       savedAtaObj = newAta;
       saveAtas([newAta, ...atas], { type: "save", payload: newAta });
@@ -554,7 +590,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             date: formDate || a.date,
             time: formTime || a.time,
             location: formLocation || a.location,
-            coordinator: formCoordinator || a.coordinator
+            coordinator: formCoordinator || a.coordinator,
+            listaPresencaUrl: listaPresencaUrl,
+            listaPresencaNome: listaPresencaNome
           };
           return savedAtaObj;
         }
@@ -940,65 +978,92 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 color: #0f172a;
               }
 
-              /* Signatures block */
-              .signatures-container {
-                margin-top: 45px;
+              /* Attendance List Attachment block */
+              .anexo-presenca-container {
+                margin-top: 36px;
+                page-break-before: auto;
                 page-break-inside: avoid;
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                background-color: #fafbfc;
+                padding: 18px;
               }
-              .signatures-title {
-                font-size: 10.5px;
-                font-weight: 700;
-                color: #475569;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                margin-bottom: 28px;
-                border-bottom: 1px solid #e2e8f0;
-                padding-bottom: 6px;
-              }
-              .signature-grid {
-                width: 100%;
-                border-collapse: collapse;
-              }
-              .signature-grid td {
-                border: none;
-                padding: 16px 8px;
-                width: 50%;
+              .anexo-presenca-header {
                 text-align: center;
-                vertical-align: bottom;
+                margin-bottom: 14px;
+                border-bottom: 1px solid #e2e8f0;
+                padding-bottom: 10px;
               }
-              .signature-line {
-                border-top: 1.2px solid #64748b;
-                width: 82%;
-                margin: 0 auto 6px auto;
+              .anexo-tag {
+                display: inline-block;
+                background-color: #0c4a80;
+                color: #ffffff;
+                font-size: 8.5px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                padding: 2px 8px;
+                border-radius: 4px;
+                text-transform: uppercase;
+                margin-bottom: 6px;
               }
-              .signature-name {
-                font-size: 11.5px;
-                font-weight: 600;
+              .anexo-title {
+                font-size: 13px;
+                font-weight: 700;
                 color: #0f172a;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
               }
-              .signature-role {
+              .anexo-subtitle {
                 font-size: 10.5px;
                 color: #64748b;
+                line-height: 1.4;
+                max-width: 600px;
+                margin: 0 auto;
               }
-
-              /* Participants check line */
-              .participants-list {
-                margin-top: 25px;
-                page-break-inside: avoid;
+              .anexo-image-wrapper {
+                text-align: center;
+                margin: 12px 0 6px 0;
               }
-              .participant-item {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 12px;
+              .anexo-image {
+                max-width: 100%;
+                max-height: 820px;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+                display: inline-block;
+              }
+              .anexo-image-caption {
+                font-size: 9.5px;
+                color: #64748b;
+                margin-top: 8px;
+                font-family: monospace;
+              }
+              .anexo-placeholder-box {
+                border: 1.5px dashed #cbd5e1;
+                background-color: #ffffff;
+                border-radius: 8px;
+                padding: 24px;
+                text-align: center;
+                margin: 10px 0;
+              }
+              .anexo-placeholder-icon {
+                font-size: 24px;
+                margin-bottom: 6px;
+              }
+              .anexo-placeholder-text {
                 font-size: 11px;
-                color: #475569;
-                border-bottom: 1.2px dotted #cbd5e1;
-                padding-bottom: 4px;
+                color: #334155;
+                line-height: 1.5;
+                margin-bottom: 4px;
               }
-              .participant-sign {
-                width: 260px;
-                text-align: right;
+              .anexo-placeholder-note {
+                font-size: 9.5px;
                 color: #94a3b8;
+                font-style: italic;
               }
 
               /* Footer validation */
@@ -1105,54 +1170,53 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               ${compileMarkdownToPrintHtml(ata.content)}
             </div>
 
-            <div class="signatures-container">
-              <div class="signatures-title">Termo de Encerramento e Assinaturas</div>
-              
-              <table class="signature-grid">
-                <tr>
-                  <td>
-                    <div class="signature-line"></div>
-                    <div class="signature-name">${ata.coordinator}</div>
-                    <div class="signature-role">Coordenador(a) da Reunião</div>
-                  </td>
-                  <td>
-                    <div class="signature-line"></div>
-                    <div class="signature-name">${ata.user}</div>
-                    <div class="signature-role">Registrador(a) / Secretário(a)</div>
-                  </td>
-                </tr>
-              </table>
-
-              <div class="participants-list">
-                <div class="participant-item">
-                  <div class="participant-name">1. Nome: __________________________________________________ Cargo/Órgão: _________________</div>
-                  <div class="participant-sign">Assinatura: ___________________________</div>
-                </div>
-                <div class="participant-item">
-                  <div class="participant-name">2. Nome: __________________________________________________ Cargo/Órgão: _________________</div>
-                  <div class="participant-sign">Assinatura: ___________________________</div>
-                </div>
-                <div class="participant-item">
-                  <div class="participant-name">3. Nome: __________________________________________________ Cargo/Órgão: _________________</div>
-                  <div class="participant-sign">Assinatura: ___________________________</div>
-                </div>
-                <div class="participant-item">
-                  <div class="participant-name">4. Nome: __________________________________________________ Cargo/Órgão: _________________</div>
-                  <div class="participant-sign">Assinatura: ___________________________</div>
-                </div>
+            <div class="anexo-presenca-container">
+              <div class="anexo-presenca-header">
+                <div class="anexo-tag">ANEXO OFICIAL</div>
+                <div class="anexo-title">COMPROVAÇÃO DE PRESENÇAS — LISTA DE PRESENÇA DA REUNIÃO</div>
+                <div class="anexo-subtitle">Conforme termo de encerramento da presente ata, a validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digital consta abaixo:</div>
               </div>
+
+              ${ata.listaPresencaUrl ? `
+                <div class="anexo-image-wrapper">
+                  <img src="${ata.listaPresencaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" />
+                  <div class="anexo-image-caption">
+                    Documento comprobatório digitalizado: ${ata.listaPresencaNome || 'Lista_de_Presenca.jpg'}
+                  </div>
+                </div>
+              ` : `
+                <div class="anexo-placeholder-box">
+                  <div class="anexo-placeholder-icon">📋</div>
+                  <div class="anexo-placeholder-text">
+                    <strong>Lista de Presença Física Assinada:</strong> O documento original rubricado pelos membros e participantes presentes na reunião encontra-se devidamente preenchido e arquivado junto à coordenação da rede.
+                  </div>
+                  <div class="anexo-placeholder-note">
+                    (Fotografia comprobatória não foi anexada no registro digital desta ata)
+                  </div>
+                </div>
+              `}
             </div>
 
             <div class="document-footer">
-              Este documento é um registro oficial gerado pelo TIO System (Rede Intersetorial). A veracidade das informações é de responsabilidade dos signatários.
+              Este documento é um registro oficial gerado pelo TIO System (Rede Intersetorial). A comprovação de presença dos órgãos é validada pela Lista de Presença anexa.
               <div class="footer-code">CÓDIGO DE AUTENTICIDADE: TIO-ATA-${ata.id.toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}</div>
             </div>
 
             <script>
               window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                }, 250);
+                var img = document.querySelector('.anexo-image');
+                if (img && !img.complete) {
+                  img.onload = function() {
+                    setTimeout(function() { window.print(); }, 250);
+                  };
+                  img.onerror = function() {
+                    setTimeout(function() { window.print(); }, 250);
+                  };
+                } else {
+                  setTimeout(function() {
+                    window.print();
+                  }, 250);
+                }
               }
             </script>
           </body>
@@ -1415,7 +1479,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
                 {/* Closing info block */}
                 <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">5. Encerramento e Assinaturas</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">5. Encerramento e Validação da Ata</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 mb-1 block">Horário de Encerramento:</label>
@@ -1440,7 +1504,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Considerações Finais:</label>
                     <textarea
                       rows={2}
-                      placeholder="Considarações gerais sobre a próxima reunião ou compromissos..."
+                      placeholder="Considerações gerais sobre a próxima reunião ou compromissos..."
                       value={formConsideracoes}
                       onChange={e => setFormConsideracoes(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs focus:outline-none transition-all text-xs"
@@ -1448,9 +1512,123 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                   </div>
                 </div>
 
+                {/* ATTENDANCE LIST PHOTO ATTACHMENT BLOCK */}
+                <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider block">
+                        6. Anexo Oficial: Lista de Presença (Fotografia)
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Substitui assinaturas manuais na ata. Anexe uma fotografia nítida da folha de presença assinada pelos participantes.
+                      </p>
+                    </div>
+                  </div>
+
+                  {listaPresencaUrl ? (
+                    <div className="bg-white p-3 rounded-xl border border-indigo-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div 
+                          onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença da Reunião" })}
+                          className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 cursor-pointer shrink-0 group hover:opacity-90 transition-opacity"
+                          title="Clique para ampliar"
+                        >
+                          <img 
+                            src={listaPresencaUrl} 
+                            alt="Lista de Presença Anexa" 
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ZoomIn size={16} className="text-white" />
+                          </div>
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {listaPresencaNome || "Lista_de_Presenca.jpg"}
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
+                            <Check size={11} /> Fotografia anexada com sucesso
+                          </span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">
+                            Será incluída no documento final e impressa no PDF
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença da Reunião" })}
+                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <Maximize2 size={12} />
+                          <span>Ampliar</span>
+                        </button>
+                        <label className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+                          <Edit3 size={12} />
+                          <span>Trocar</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleAttendancePhotoUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRemoveAttendancePhoto}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                          title="Remover fotografia da lista"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-white rounded-xl p-5 text-center transition-all">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                          <Camera size={20} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-700">
+                            Clique ou arraste a fotografia da Lista de Presença
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Formatos suportados: JPG, PNG, WEBP ou captura direta da câmera
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <label className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                            <Upload size={13} />
+                            <span>Selecionar Arquivo</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleAttendancePhotoUpload} 
+                              className="hidden" 
+                            />
+                          </label>
+                          <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5">
+                            <Camera size={13} />
+                            <span>Tirar Foto</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              capture="environment"
+                              onChange={handleAttendancePhotoUpload} 
+                              className="hidden" 
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
               </div>
             ) : (
-              <div className="flex-1 flex flex-col space-y-2">
+              <div className="flex-1 flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
                     Editor Markdown (Alteração direta do Documento):
@@ -1489,9 +1667,59 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 <textarea
                   value={editorMarkdown}
                   onChange={(e) => setEditorMarkdown(e.target.value)}
-                  className="w-full min-h-[55vh] flex-1 p-4 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-2xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
+                  className="w-full min-h-[42vh] flex-1 p-4 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-2xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
                   placeholder="Insira e modifique a ata em Markdown livre..."
                 />
+
+                {/* Free text mode attachment bar */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
+                      <Camera size={16} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800">
+                        {listaPresencaUrl ? "Lista de Presença Anexada" : "Anexo de Lista de Presença"}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {listaPresencaUrl ? (listaPresencaNome || "Foto vinculada à ata") : "Anexe uma foto da lista assinada para comprovação de presenças"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {listaPresencaUrl ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                          className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all"
+                        >
+                          Ver Foto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveAttendancePhoto}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                          title="Remover foto"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </>
+                    ) : (
+                      <label className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                        <Upload size={12} />
+                        <span>Anexar Foto da Lista</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleAttendancePhotoUpload} 
+                          className="hidden" 
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1560,7 +1788,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     dataCriacao: selectedAta?.dataCriacao || new Date().toISOString(), 
                     organ: selectedAta?.organ || activeSession.organ, 
                     user: selectedAta?.user || activeSession.username,
-                    numero: selectedAta?.numero 
+                    numero: selectedAta?.numero,
+                    listaPresencaUrl: listaPresencaUrl,
+                    listaPresencaNome: listaPresencaNome
                   })}
                   className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-all cursor-pointer"
                   title="Imprimir documento de teste"
@@ -1574,6 +1804,54 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             <div className="flex-1 overflow-y-auto max-h-[70vh] bg-slate-50/50 p-6 rounded-2xl border border-slate-200/60 shadow-inner prose prose-indigo max-w-none text-slate-800 text-xs">
               <div className="markdown-body select-text space-y-3 leading-relaxed">
                 <ReactMarkdown>{editorMarkdown}</ReactMarkdown>
+              </div>
+
+              {/* Attendance list preview at the end of the document */}
+              <div className="mt-8 pt-5 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Camera size={14} className="text-indigo-600" />
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      Anexo: Lista de Presença Oficial
+                    </span>
+                  </div>
+                  {listaPresencaUrl ? (
+                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Fotografia vinculada
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-slate-400 italic">
+                      Nenhuma foto vinculada
+                    </span>
+                  )}
+                </div>
+
+                {listaPresencaUrl ? (
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                    <img 
+                      src={listaPresencaUrl} 
+                      alt="Lista de Presença Anexa" 
+                      onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                      className="max-h-64 max-w-full mx-auto object-contain rounded-lg border border-slate-100 shadow-sm cursor-pointer hover:opacity-95 transition-opacity"
+                    />
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {listaPresencaNome || "Lista_de_Presenca.jpg"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ZoomIn size={11} /> Ampliar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-white rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-[11px]">
+                    Validação de presenças mediante a lista física arquivada junto à coordenação.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1646,39 +1924,57 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     </div>
 
                     {/* Quick actions row */}
-                    <div className="flex items-center justify-end gap-2.5 mt-5 pt-4 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => handlePrintAta(a)}
-                        className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
-                        title="Visualizar e Imprimir"
-                      >
-                        <Printer size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyText(a.content)}
-                        className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
-                        title="Copiar texto da Ata"
-                      >
-                        <Copy size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleStartEdit(a)}
-                        className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
-                        title="Editar conteúdo"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAta(a.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 cursor-pointer"
-                        title="Deletar registro"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+                      <div>
+                        {a.listaPresencaUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImageModal({ url: a.listaPresencaUrl!, title: `Lista de Presença - ${a.numero ? `Ata ${a.numero}` : 'Ata'}` })}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                            title="Visualizar foto da lista de presença assinada"
+                          >
+                            <Camera size={12} />
+                            <span>Lista Anexa</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">Sem anexo digital</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintAta(a)}
+                          className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
+                          title="Visualizar e Imprimir"
+                        >
+                          <Printer size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(a.content)}
+                          className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
+                          title="Copiar texto da Ata"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(a)}
+                          className="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all border border-slate-200 cursor-pointer"
+                          title="Editar conteúdo"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAta(a.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 cursor-pointer"
+                          title="Deletar registro"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1694,6 +1990,51 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             )}
           </div>
         </>
+      )}
+
+      {/* FULLSCREEN PREVIEW IMAGE MODAL */}
+      {previewImageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full max-h-[92vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                  <ImageIcon size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold">{previewImageModal.title}</h4>
+                  <p className="text-[10px] text-slate-400">Comprovante de presenças oficial da reunião</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewImageModal(null)}
+                className="p-1.5 rounded-xl hover:bg-white/20 text-slate-300 hover:text-white transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 p-6 bg-slate-950 flex items-center justify-center overflow-auto max-h-[75vh]">
+              <img
+                src={previewImageModal.url}
+                alt={previewImageModal.title}
+                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl border border-white/10"
+              />
+            </div>
+            <div className="flex items-center justify-between px-6 py-3 bg-slate-100 text-xs text-slate-600 border-t border-slate-200">
+              <span className="text-[11px] text-slate-500">
+                Documento de presença oficial assinado pelos órgãos participantes da reunião intersetorial.
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewImageModal(null)}
+                className="px-4 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-all cursor-pointer shadow-sm"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
