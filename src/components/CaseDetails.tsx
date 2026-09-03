@@ -141,6 +141,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [isAtaOpen, setIsAtaOpen] = React.useState(false);
   const [ataMarkdown, setAtaMarkdown] = React.useState("");
   const [ataLoading, setAtaLoading] = React.useState(false);
+  const [ataAiListaUrl, setAtaAiListaUrl] = React.useState<string | undefined>(undefined);
+  const [ataAiListaNome, setAtaAiListaNome] = React.useState<string | undefined>(undefined);
 
   // Editable ATA Modal states
   const [isAtaEditorOpen, setIsAtaEditorOpen] = React.useState(false);
@@ -500,17 +502,20 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   };
 
   // Call Gemini to generate a professional formal Meeting Minute/Report
-  const handleGenerateAtaWithAi = async () => {
+  const handleGenerateAtaWithAi = async (specificMeeting?: Meeting) => {
+    const targetMeeting = specificMeeting || caseItem.reunioes?.find(m => m.listaPresencaUrl) || caseItem.reunioes?.[0];
     setAtaLoading(true);
     setIsAtaOpen(true);
     setAtaMarkdown("");
+    setAtaAiListaUrl(targetMeeting?.listaPresencaUrl);
+    setAtaAiListaNome(targetMeeting?.listaPresencaNome);
 
     try {
       const response = await fetch("/api/gemini/generate-minutes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          meeting: caseItem.reunioes?.[0] || {
+          meeting: targetMeeting || {
             date: caseItem.dataCriacao.split("T")[0],
             time: "10:00",
             location: "Gabinete de Rede Protegida",
@@ -524,7 +529,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
             address: caseItem.address,
             situation: caseItem.situation
           },
-          discussions: caseItem.situationDetails,
+          discussions: targetMeeting?.discussao || caseItem.situationDetails,
           encaminhamentos: caseItem.encaminhamentos
         })
       });
@@ -1728,7 +1733,7 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
               </div>
 
               <button
-                onClick={handleGenerateAtaWithAi}
+                onClick={() => handleGenerateAtaWithAi()}
                 className="flex items-center gap-2 px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-100 cursor-pointer"
                 id="btn-generate-ata"
               >
@@ -1996,19 +2001,31 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
                         <span className={`w-2 h-2 rounded-full ${m.documentoAta ? "bg-emerald-500" : "bg-amber-400"}`}></span>
                         <span>{m.documentoAta ? "Ata Oficial preenchida e gravada" : "Ata Oficial pendente de preenchimento"}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenAtaEditor(m, activeSession.role === "Visualizar")}
-                        className={`flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer border ${
-                          m.documentoAta
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100/80"
-                            : "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
-                        }`}
-                        id={`btn-open-ata-editor-${m.id}`}
-                      >
-                        <FileText size={13} />
-                        {m.documentoAta ? "Ver / Editar ATA Oficial" : "Preencher ATA pelo Modelo"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateAtaWithAi(m)}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer border bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                          title="Gerar ata desta reunião com Gemini IA"
+                          id={`btn-ai-ata-${m.id}`}
+                        >
+                          <Sparkles size={13} className="text-indigo-600" />
+                          <span>Ata com IA</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAtaEditor(m, activeSession.role === "Visualizar")}
+                          className={`flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer border ${
+                            m.documentoAta
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100/80"
+                              : "bg-slate-900 border-slate-900 text-white hover:bg-slate-800"
+                          }`}
+                          id={`btn-open-ata-editor-${m.id}`}
+                        >
+                          <FileText size={13} />
+                          {m.documentoAta ? "Ver / Editar ATA Oficial" : "Preencher ATA pelo Modelo"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -2154,6 +2171,8 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
         onClose={() => setIsAtaOpen(false)}
         markdown={ataMarkdown}
         loading={ataLoading}
+        listaPresencaUrl={ataAiListaUrl || caseItem.reunioes?.find(m => m.listaPresencaUrl)?.listaPresencaUrl}
+        listaPresencaNome={ataAiListaNome || caseItem.reunioes?.find(m => m.listaPresencaUrl)?.listaPresencaNome}
       />
 
       {/* Editable ATA modal with custom Markdown template and editor */}

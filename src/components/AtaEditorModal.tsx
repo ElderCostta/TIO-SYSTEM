@@ -388,71 +388,83 @@ export default function AtaEditorModal({
                 color: #0f172a;
               }
 
-              /* Attendance list attachment */
-              .anexo-presenca-container {
+              /* Attendance list attachment - Dedicated Page */
+              .anexo-presenca-page {
+                page-break-before: always;
+                break-before: page;
+                page-break-inside: avoid;
+                break-inside: avoid;
                 margin-top: 36px;
                 border-top: 2px solid #0c4a80;
                 padding-top: 20px;
-                page-break-inside: avoid;
               }
               .anexo-presenca-header {
+                text-align: center;
                 margin-bottom: 14px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #cbd5e1;
               }
               .anexo-tag {
                 display: inline-block;
-                background-color: #f1f5f9;
-                border: 1px solid #cbd5e1;
-                color: #0c4a80;
+                background-color: #0c4a80;
+                color: #ffffff;
                 font-size: 9px;
                 font-weight: 800;
                 text-transform: uppercase;
-                letter-spacing: 1px;
-                padding: 3px 8px;
+                letter-spacing: 1.2px;
+                padding: 3px 10px;
                 border-radius: 4px;
                 margin-bottom: 6px;
                 font-family: 'Inter', sans-serif;
               }
               .anexo-title {
-                font-size: 13px;
-                font-weight: 700;
+                font-size: 13.5px;
+                font-weight: 800;
                 color: #0f172a;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
                 font-family: 'Inter', sans-serif;
-                margin-bottom: 4px;
+                margin: 0 0 4px 0;
               }
               .anexo-subtitle {
-                font-size: 10px;
-                color: #64748b;
+                font-size: 11px;
+                color: #475569;
                 line-height: 1.4;
+                max-width: 650px;
+                margin: 0 auto;
               }
               .anexo-image-wrapper {
                 background: #ffffff;
-                border: 1px solid #cbd5e1;
+                border: 1.5px solid #334155;
                 border-radius: 8px;
-                padding: 10px;
+                padding: 8px;
                 text-align: center;
-                margin-top: 10px;
+                margin: 12px 0;
                 page-break-inside: avoid;
+                break-inside: avoid;
               }
               .anexo-image {
                 max-width: 100%;
-                max-height: 520px;
+                width: 100%;
+                max-height: 980px;
+                height: auto;
                 object-fit: contain;
                 border-radius: 4px;
-                border: 1px solid #e2e8f0;
+                display: block;
+                margin: 0 auto;
               }
               .anexo-image-caption {
                 margin-top: 8px;
-                font-size: 9.5px;
-                color: #64748b;
-                font-style: italic;
+                font-size: 10px;
+                color: #475569;
+                font-family: monospace;
+                text-align: center;
               }
               .anexo-placeholder-box {
                 background-color: #f8fafc;
                 border: 1px dashed #94a3b8;
                 border-radius: 8px;
-                padding: 16px;
+                padding: 18px;
                 margin-top: 10px;
                 display: flex;
                 align-items: center;
@@ -464,6 +476,47 @@ export default function AtaEditorModal({
               .anexo-placeholder-icon {
                 font-size: 20px;
                 flex-shrink: 0;
+              }
+
+              /* Media print specific overrides */
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 12mm 15mm 15mm 15mm;
+                }
+                body {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .anexo-presenca-page {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  margin-top: 0 !important;
+                  padding-top: 8px !important;
+                  border-top: none !important;
+                }
+                .anexo-image-wrapper {
+                  border: 1.5px solid #0f172a !important;
+                  padding: 6px !important;
+                  margin: 8px 0 !important;
+                  background: #ffffff !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
+                .anexo-image {
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  max-height: 940px !important;
+                  height: auto !important;
+                  object-fit: contain !important;
+                  display: block !important;
+                  margin: 0 auto !important;
+                }
+                .document-footer {
+                  page-break-inside: avoid !important;
+                }
               }
 
               /* Footer validation */
@@ -528,19 +581,19 @@ export default function AtaEditorModal({
               ${compileMarkdownToPrintHtml(markdown)}
             </div>
 
-            <!-- Attendance List Attachment Section -->
-            <div class="anexo-presenca-container">
+            <!-- Attendance List Attachment Section - Dedicated Page -->
+            <div class="anexo-presenca-page">
               <div class="anexo-presenca-header">
                 <div class="anexo-tag">ANEXO OFICIAL</div>
                 <div class="anexo-title">COMPROVAÇÃO DE PRESENÇAS — LISTA DE PRESENÇA DA REUNIÃO</div>
-                <div class="anexo-subtitle">A validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digital consta abaixo:</div>
+                <div class="anexo-subtitle">A validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digitalizado encontra-se aberto na íntegra abaixo:</div>
               </div>
 
               ${currentListaUrl ? `
                 <div class="anexo-image-wrapper">
-                  <img src="${currentListaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" />
+                  <img src="${currentListaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" loading="eager" decoding="sync" />
                   <div class="anexo-image-caption">
-                    Documento comprobatório digitalizado: ${currentListaNome || 'Lista_de_Presenca.jpg'}
+                    Documento comprobatório digitalizado aberto: ${currentListaNome || 'Lista_de_Presenca.jpg'}
                   </div>
                 </div>
               ` : `
@@ -554,14 +607,29 @@ export default function AtaEditorModal({
             </div>
 
             <div class="document-footer">
-              Este documento é um registro oficial gerado pelo TIO System.
+              Este documento é um registro oficial gerado pelo TIO System. A frequência dos participantes é comprovada pela Lista de Presença anexa.
             </div>
 
             <script>
               window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                }, 250);
+                var img = document.querySelector('.anexo-image');
+                if (img && img.getAttribute('src')) {
+                  if (img.complete && img.naturalHeight !== 0) {
+                    setTimeout(function() { window.print(); }, 400);
+                  } else {
+                    img.onload = function() {
+                      setTimeout(function() { window.print(); }, 400);
+                    };
+                    img.onerror = function() {
+                      setTimeout(function() { window.print(); }, 400);
+                    };
+                    setTimeout(function() { window.print(); }, 1200);
+                  }
+                } else {
+                  setTimeout(function() {
+                    window.print();
+                  }, 300);
+                }
               }
             </script>
           </body>
@@ -731,40 +799,49 @@ export default function AtaEditorModal({
                 </div>
               </div>
 
-              {/* Attendance List Preview Block */}
+              {/* Attendance List Preview Block - Opened View */}
               <div className="pt-6 border-t border-slate-200/80">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
-                    Anexo Oficial
-                  </span>
-                  <span className="text-xs font-bold text-slate-800 uppercase">
-                    Comprovação de Presenças — Lista Oficial
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded font-bold">
+                      Anexo Oficial
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <Camera size={14} className="text-indigo-600" />
+                      Comprovação de Presenças — Lista Oficial Aberta
+                    </span>
+                  </div>
+                  {currentListaUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setZoomModalOpen(true)}
+                      className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer text-xs hover:underline"
+                    >
+                      <ZoomIn size={13} /> Ampliar em Tela Cheia
+                    </button>
+                  )}
                 </div>
 
                 {currentListaUrl ? (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-center bg-white p-2 rounded-lg border border-slate-100 max-h-[300px] overflow-hidden">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-center">
+                    <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm inline-block max-w-full">
                       <img
                         src={currentListaUrl}
-                        alt="Lista de Presença Anexa"
-                        className="max-h-[280px] object-contain rounded"
+                        alt="Lista de Presença Anexa Aberta"
+                        onClick={() => setZoomModalOpen(true)}
+                        className="max-h-[520px] w-auto max-w-full object-contain rounded-lg mx-auto cursor-pointer hover:opacity-95 transition-opacity"
+                        title="Clique para ampliar"
                       />
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500 font-mono">
                       <span className="truncate">{currentListaNome || "Lista_de_Presenca.jpg"}</span>
-                      <button
-                        type="button"
-                        onClick={() => setZoomModalOpen(true)}
-                        className="text-indigo-600 hover:underline font-bold flex items-center gap-1 cursor-pointer text-xs"
-                      >
-                        <ZoomIn size={12} /> Ampliar imagem
-                      </button>
+                      <span>•</span>
+                      <span className="text-emerald-600 font-semibold">Exibição aberta da folha física assinada</span>
                     </div>
                   </div>
                 ) : (
                   <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
-                    Validação de presenças mediante a lista física arquivada junto à coordenação.
+                    Validação de presenças mediante a lista física arquivada junto à coordenação da rede.
                   </div>
                 )}
               </div>

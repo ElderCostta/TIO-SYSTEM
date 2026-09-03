@@ -978,92 +978,145 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 color: #0f172a;
               }
 
-              /* Attendance List Attachment block */
-              .anexo-presenca-container {
-                margin-top: 36px;
-                page-break-before: auto;
+              /* Attendance List Attachment - Dedicated Page */
+              .anexo-presenca-page {
+                page-break-before: always;
+                break-before: page;
                 page-break-inside: avoid;
-                border: 1px solid #e2e8f0;
-                border-radius: 10px;
-                background-color: #fafbfc;
-                padding: 18px;
+                break-inside: avoid;
+                margin-top: 36px;
+                padding-top: 20px;
+                border-top: 2px solid #0c4a80;
               }
               .anexo-presenca-header {
                 text-align: center;
-                margin-bottom: 14px;
-                border-bottom: 1px solid #e2e8f0;
-                padding-bottom: 10px;
+                margin-bottom: 12px;
+                border-bottom: 1px solid #cbd5e1;
+                padding-bottom: 8px;
               }
               .anexo-tag {
                 display: inline-block;
                 background-color: #0c4a80;
                 color: #ffffff;
-                font-size: 8.5px;
-                font-weight: 700;
-                letter-spacing: 1px;
-                padding: 2px 8px;
+                font-size: 9px;
+                font-weight: 800;
+                letter-spacing: 1.2px;
+                padding: 3px 10px;
                 border-radius: 4px;
                 text-transform: uppercase;
                 margin-bottom: 6px;
+                font-family: 'Inter', sans-serif;
               }
               .anexo-title {
-                font-size: 13px;
-                font-weight: 700;
+                font-size: 13.5px;
+                font-weight: 800;
                 color: #0f172a;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                margin-bottom: 4px;
+                margin: 0 0 4px 0;
+                font-family: 'Inter', sans-serif;
               }
               .anexo-subtitle {
-                font-size: 10.5px;
-                color: #64748b;
+                font-size: 11px;
+                color: #475569;
                 line-height: 1.4;
-                max-width: 600px;
+                max-width: 650px;
                 margin: 0 auto;
               }
               .anexo-image-wrapper {
+                background: #ffffff;
+                border: 1.5px solid #334155;
+                border-radius: 8px;
+                padding: 8px;
                 text-align: center;
-                margin: 12px 0 6px 0;
+                margin: 12px 0;
+                page-break-inside: avoid;
+                break-inside: avoid;
               }
               .anexo-image {
                 max-width: 100%;
-                max-height: 820px;
-                width: auto;
+                width: 100%;
+                max-height: 980px;
                 height: auto;
                 object-fit: contain;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-                display: inline-block;
+                border-radius: 4px;
+                display: block;
+                margin: 0 auto;
               }
               .anexo-image-caption {
-                font-size: 9.5px;
-                color: #64748b;
+                font-size: 10px;
+                color: #475569;
                 margin-top: 8px;
                 font-family: monospace;
+                text-align: center;
               }
               .anexo-placeholder-box {
-                border: 1.5px dashed #cbd5e1;
-                background-color: #ffffff;
+                background-color: #f8fafc;
+                border: 1px dashed #94a3b8;
                 border-radius: 8px;
-                padding: 24px;
-                text-align: center;
-                margin: 10px 0;
+                padding: 18px;
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                color: #475569;
+                font-size: 11px;
+                line-height: 1.5;
               }
               .anexo-placeholder-icon {
-                font-size: 24px;
-                margin-bottom: 6px;
+                font-size: 20px;
+                flex-shrink: 0;
               }
               .anexo-placeholder-text {
                 font-size: 11px;
                 color: #334155;
                 line-height: 1.5;
-                margin-bottom: 4px;
               }
               .anexo-placeholder-note {
                 font-size: 9.5px;
                 color: #94a3b8;
                 font-style: italic;
+              }
+
+              /* Media print specific overrides */
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 12mm 15mm 15mm 15mm;
+                }
+                body {
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .anexo-presenca-page {
+                  page-break-before: always !important;
+                  break-before: page !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  margin-top: 0 !important;
+                  padding-top: 8px !important;
+                  border-top: none !important;
+                }
+                .anexo-image-wrapper {
+                  border: 1.5px solid #0f172a !important;
+                  padding: 6px !important;
+                  margin: 8px 0 !important;
+                  background: #ffffff !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
+                .anexo-image {
+                  max-width: 100% !important;
+                  width: 100% !important;
+                  max-height: 940px !important;
+                  height: auto !important;
+                  object-fit: contain !important;
+                  display: block !important;
+                  margin: 0 auto !important;
+                }
+                .document-footer {
+                  page-break-inside: avoid !important;
+                }
               }
 
               /* Footer validation */
@@ -1170,28 +1223,31 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               ${compileMarkdownToPrintHtml(ata.content)}
             </div>
 
-            <div class="anexo-presenca-container">
+            <!-- Attendance List Attachment Section - Opened Display on Dedicated Page -->
+            <div class="anexo-presenca-page">
               <div class="anexo-presenca-header">
                 <div class="anexo-tag">ANEXO OFICIAL</div>
                 <div class="anexo-title">COMPROVAÇÃO DE PRESENÇAS — LISTA DE PRESENÇA DA REUNIÃO</div>
-                <div class="anexo-subtitle">Conforme termo de encerramento da presente ata, a validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digital consta abaixo:</div>
+                <div class="anexo-subtitle">Conforme termo de encerramento da presente ata, a validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digitalizado encontra-se aberto na íntegra abaixo:</div>
               </div>
 
               ${ata.listaPresencaUrl ? `
                 <div class="anexo-image-wrapper">
-                  <img src="${ata.listaPresencaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" />
+                  <img src="${ata.listaPresencaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" loading="eager" decoding="sync" />
                   <div class="anexo-image-caption">
-                    Documento comprobatório digitalizado: ${ata.listaPresencaNome || 'Lista_de_Presenca.jpg'}
+                    Documento comprobatório digitalizado aberto: ${ata.listaPresencaNome || 'Lista_de_Presenca.jpg'}
                   </div>
                 </div>
               ` : `
                 <div class="anexo-placeholder-box">
                   <div class="anexo-placeholder-icon">📋</div>
-                  <div class="anexo-placeholder-text">
-                    <strong>Lista de Presença Física Assinada:</strong> O documento original rubricado pelos membros e participantes presentes na reunião encontra-se devidamente preenchido e arquivado junto à coordenação da rede.
-                  </div>
-                  <div class="anexo-placeholder-note">
-                    (Fotografia comprobatória não foi anexada no registro digital desta ata)
+                  <div>
+                    <div class="anexo-placeholder-text">
+                      <strong>Lista de Presença Física Assinada:</strong> O documento original rubricado pelos membros e participantes presentes na reunião encontra-se devidamente preenchido e arquivado junto à coordenação da rede.
+                    </div>
+                    <div class="anexo-placeholder-note">
+                      (Fotografia comprobatória não foi anexada no registro digital desta ata)
+                    </div>
                   </div>
                 </div>
               `}
@@ -1205,17 +1261,22 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             <script>
               window.onload = function() {
                 var img = document.querySelector('.anexo-image');
-                if (img && !img.complete) {
-                  img.onload = function() {
-                    setTimeout(function() { window.print(); }, 250);
-                  };
-                  img.onerror = function() {
-                    setTimeout(function() { window.print(); }, 250);
-                  };
+                if (img && img.getAttribute('src')) {
+                  if (img.complete && img.naturalHeight !== 0) {
+                    setTimeout(function() { window.print(); }, 400);
+                  } else {
+                    img.onload = function() {
+                      setTimeout(function() { window.print(); }, 400);
+                    };
+                    img.onerror = function() {
+                      setTimeout(function() { window.print(); }, 400);
+                    };
+                    setTimeout(function() { window.print(); }, 1200);
+                  }
                 } else {
                   setTimeout(function() {
                     window.print();
-                  }, 250);
+                  }, 300);
                 }
               }
             </script>
@@ -1806,19 +1867,28 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 <ReactMarkdown>{editorMarkdown}</ReactMarkdown>
               </div>
 
-              {/* Attendance list preview at the end of the document */}
+              {/* Attendance list preview at the end of the document - Opened View */}
               <div className="mt-8 pt-5 border-t border-slate-200">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
                     <Camera size={14} className="text-indigo-600" />
                     <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
-                      Anexo: Lista de Presença Oficial
+                      Anexo: Comprovação de Presenças — Lista Aberta
                     </span>
                   </div>
                   {listaPresencaUrl ? (
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      Fotografia vinculada
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Exibição Aberta
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ZoomIn size={11} /> Tela cheia
+                      </button>
+                    </div>
                   ) : (
                     <span className="text-[9px] text-slate-400 italic">
                       Nenhuma foto vinculada
@@ -1827,24 +1897,24 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 </div>
 
                 {listaPresencaUrl ? (
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
-                    <img 
-                      src={listaPresencaUrl} 
-                      alt="Lista de Presença Anexa" 
-                      onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
-                      className="max-h-64 max-w-full mx-auto object-contain rounded-lg border border-slate-100 shadow-sm cursor-pointer hover:opacity-95 transition-opacity"
-                    />
-                    <div className="flex items-center justify-center gap-2 mt-2">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center space-y-2">
+                    <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm inline-block max-w-full">
+                      <img 
+                        src={listaPresencaUrl} 
+                        alt="Lista de Presença Anexa Aberta" 
+                        onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                        className="max-h-[500px] w-auto max-w-full mx-auto object-contain rounded cursor-pointer hover:opacity-95 transition-opacity"
+                        title="Clique para ver em tela cheia"
+                      />
+                    </div>
+                    <div className="flex items-center justify-center gap-2 mt-1">
                       <span className="text-[10px] text-slate-500 font-mono">
                         {listaPresencaNome || "Lista_de_Presenca.jpg"}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
-                        className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <ZoomIn size={11} /> Ampliar
-                      </button>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-[10px] text-emerald-600 font-semibold">
+                        Lista assinada aberta para exibição e impressão
+                      </span>
                     </div>
                   </div>
                 ) : (
