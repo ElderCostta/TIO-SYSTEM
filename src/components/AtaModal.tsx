@@ -544,25 +544,43 @@ export default function AtaModal({
             </div>
 
             <script>
-              window.onload = function() {
+              function triggerPrint() {
                 var img = document.querySelector('.anexo-image');
                 if (img && img.getAttribute('src')) {
                   if (img.complete && img.naturalHeight !== 0) {
-                    setTimeout(function() { window.print(); }, 400);
+                    setTimeout(function() { window.print(); }, 350);
                   } else {
+                    var printed = false;
                     img.onload = function() {
-                      setTimeout(function() { window.print(); }, 400);
+                      if (!printed) {
+                        printed = true;
+                        setTimeout(function() { window.print(); }, 350);
+                      }
                     };
                     img.onerror = function() {
-                      setTimeout(function() { window.print(); }, 400);
+                      if (!printed) {
+                        printed = true;
+                        setTimeout(function() { window.print(); }, 350);
+                      }
                     };
-                    setTimeout(function() { window.print(); }, 1200);
+                    setTimeout(function() {
+                      if (!printed) {
+                        printed = true;
+                        window.print();
+                      }
+                    }, 1500);
                   }
                 } else {
                   setTimeout(function() {
                     window.print();
                   }, 300);
                 }
+              }
+
+              if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                triggerPrint();
+              } else {
+                window.addEventListener('load', triggerPrint);
               }
             </script>
           </body>

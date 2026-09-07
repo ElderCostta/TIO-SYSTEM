@@ -210,6 +210,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   // Attendance List Photo Attachment State
   const [listaPresencaUrl, setListaPresencaUrl] = React.useState<string | undefined>(undefined);
   const [listaPresencaNome, setListaPresencaNome] = React.useState<string | undefined>(undefined);
+  const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [previewImageModal, setPreviewImageModal] = React.useState<{ url: string; title: string } | null>(null);
 
   // Compress & read photo of attendance list
@@ -217,39 +218,64 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingPhoto(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 1600;
-        let width = img.width;
-        let height = img.height;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
+        try {
+          const maxDim = 1400;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
           }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.fillStyle = "#ffffff";
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
-          setListaPresencaUrl(dataUrl);
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.80);
+            setListaPresencaUrl(dataUrl);
+            setListaPresencaNome(file.name);
+            if (selectedAta) {
+              setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: dataUrl, listaPresencaNome: file.name } : null);
+            }
+          } else {
+            const rawUrl = event.target?.result as string;
+            setListaPresencaUrl(rawUrl);
+            setListaPresencaNome(file.name);
+            if (selectedAta) {
+              setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: rawUrl, listaPresencaNome: file.name } : null);
+            }
+          }
+        } catch (procErr) {
+          console.error("Erro ao comprimir imagem:", procErr);
+          const rawUrl = event.target?.result as string;
+          setListaPresencaUrl(rawUrl);
           setListaPresencaNome(file.name);
-        } else {
-          setListaPresencaUrl(event.target?.result as string);
-          setListaPresencaNome(file.name);
+        } finally {
+          setIsUploadingPhoto(false);
         }
       };
+      img.onerror = () => {
+        setIsUploadingPhoto(false);
+        alert("Não foi possível carregar a imagem selecionada. Tente outro formato.");
+      };
       img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      setIsUploadingPhoto(false);
+      alert("Erro ao ler o arquivo de imagem.");
     };
     reader.readAsDataURL(file);
   };
@@ -257,6 +283,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const handleRemoveAttendancePhoto = () => {
     setListaPresencaUrl(undefined);
     setListaPresencaNome(undefined);
+    if (selectedAta) {
+      setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: undefined, listaPresencaNome: undefined } : null);
+    }
   };
 
   // Load and Sync from LocalStorage, Server API, and Firestore real-time subscription
@@ -282,7 +311,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
       .then(data => {
         if (isMounted && data && Array.isArray(data.atas) && data.atas.length > 0) {
           setAtas(data.atas);
-          localStorage.setItem("tio_system_general_atas", JSON.stringify(data.atas));
+          try {
+            localStorage.setItem("tio_system_general_atas", JSON.stringify(data.atas));
+          } catch (lsErr) {
+            console.warn("Storage warning:", lsErr);
+          }
         }
       })
       .catch(err => console.error("Erro ao carregar atas do servidor API:", err));
@@ -294,7 +327,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         const data = doc.data();
         return {
           id: doc.id,
-          ...data
+          ...data,
+          listaPresencaUrl: data.listaPresencaUrl || undefined,
+          listaPresencaNome: data.listaPresencaNome || undefined
         } as GeneralAta;
       });
 
@@ -328,8 +363,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     organ: ata.organ || "",
                     user: ata.user || "",
                     numero: ata.numero || 1,
+                    listaPresencaUrl: ata.listaPresencaUrl || "",
+                    listaPresencaNome: ata.listaPresencaNome || "",
                     createdAt: serverTimestamp()
-                  });
+                  }, { merge: true });
                 } catch (err) {
                   console.error("Erro ao sincronizar ata local para o Firestore:", err);
                 }
@@ -353,8 +390,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 organ: ata.organ,
                 user: ata.user,
                 numero: ata.numero || 1,
+                listaPresencaUrl: ata.listaPresencaUrl || "",
+                listaPresencaNome: ata.listaPresencaNome || "",
                 createdAt: serverTimestamp()
-              });
+              }, { merge: true });
             } catch (err) {
               console.error("Erro ao semear atas default:", err);
             }
@@ -363,7 +402,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
       } else {
         if (isMounted) {
           setAtas(sorted);
-          localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
+          try {
+            localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
+          } catch (lsErr) {
+            console.warn("Storage warning:", lsErr);
+          }
         }
       }
     }, (error) => {
@@ -379,7 +422,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const saveAtas = async (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
     // Update local state and localStorage for optimistic UI response
     setAtas(updatedList);
-    localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
+    try {
+      localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
+    } catch (lsErr) {
+      console.warn("Storage warning:", lsErr);
+    }
 
     if (action) {
       if (action.type === "save") {
@@ -391,7 +438,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           body: JSON.stringify({ ata })
         }).catch(err => console.error("Erro no salvamento da ata no servidor:", err));
 
-        // Direct write to Firestore
+        // Direct write to Firestore including attendance list attachments
         try {
           await setDoc(doc(db, "atas", ata.id), {
             id: ata.id,
@@ -404,8 +451,10 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             organ: ata.organ || "",
             user: ata.user || "",
             numero: ata.numero || 1,
+            listaPresencaUrl: ata.listaPresencaUrl || "",
+            listaPresencaNome: ata.listaPresencaNome || "",
             createdAt: serverTimestamp()
-          });
+          }, { merge: true });
         } catch (err) {
           console.error("Erro no setDoc Firestore para ata:", err);
         }
@@ -605,10 +654,12 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     }
 
     if (downloadPdf && savedAtaObj) {
-      const ataToPrint = savedAtaObj;
-      setTimeout(() => {
-        handlePrintAta(ataToPrint);
-      }, 150);
+      const ataToPrint: GeneralAta = {
+        ...savedAtaObj,
+        listaPresencaUrl: savedAtaObj.listaPresencaUrl || listaPresencaUrl,
+        listaPresencaNome: savedAtaObj.listaPresencaNome || listaPresencaNome
+      };
+      handlePrintAta(ataToPrint);
     }
   };
 
@@ -787,13 +838,24 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
   // Print ATA
   const handlePrintAta = (ata: GeneralAta) => {
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      const formattedAtaNum = ata.numero ? `Ata${ata.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
-      const formattedDate = formatDateBR(ata.date);
-      const formattedRegDate = formatDateTimeBR(ata.dataCriacao);
+    // If the currently open/selected ata has an attached photo and the ata parameter lacks it, preserve it
+    const effectiveAta: GeneralAta = {
+      ...ata,
+      listaPresencaUrl: ata.listaPresencaUrl || (selectedAta?.id === ata.id ? listaPresencaUrl : undefined) || (isCreating ? listaPresencaUrl : undefined) || ata.listaPresencaUrl,
+      listaPresencaNome: ata.listaPresencaNome || (selectedAta?.id === ata.id ? listaPresencaNome : undefined) || (isCreating ? listaPresencaNome : undefined) || ata.listaPresencaNome
+    };
 
-      printWindow.document.write(`
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("A janela de impressão foi bloqueada pelo navegador. Por favor, permita pop-ups neste navegador para emitir e baixar o PDF da Ata.");
+      return;
+    }
+
+    const formattedAtaNum = effectiveAta.numero ? `Ata${effectiveAta.numero.toString().padStart(2, "0")}` : "ATA DE REUNIÃO";
+    const formattedDate = formatDateBR(effectiveAta.date);
+    const formattedRegDate = formatDateTimeBR(effectiveAta.dataCriacao);
+
+    printWindow.document.write(`
         <html>
           <head>
             <title>${formattedAtaNum} - ATA DE REUNIÃO INTERSETORIAL</title>
@@ -1231,11 +1293,11 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 <div class="anexo-subtitle">Conforme termo de encerramento da presente ata, a validação das presenças dos órgãos e membros presentes dá-se pela lista física assinada, cujo comprovante digitalizado encontra-se aberto na íntegra abaixo:</div>
               </div>
 
-              ${ata.listaPresencaUrl ? `
+              ${effectiveAta.listaPresencaUrl ? `
                 <div class="anexo-image-wrapper">
-                  <img src="${ata.listaPresencaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" loading="eager" decoding="sync" />
+                  <img src="${effectiveAta.listaPresencaUrl}" alt="Lista de Presença Digitalizada" class="anexo-image" loading="eager" decoding="sync" />
                   <div class="anexo-image-caption">
-                    Documento comprobatório digitalizado aberto: ${ata.listaPresencaNome || 'Lista_de_Presenca.jpg'}
+                    Documento comprobatório digitalizado aberto: ${effectiveAta.listaPresencaNome || 'Lista_de_Presenca.jpg'}
                   </div>
                 </div>
               ` : `
@@ -1255,23 +1317,35 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
             <div class="document-footer">
               Este documento é um registro oficial gerado pelo TIO System (Rede Intersetorial). A comprovação de presença dos órgãos é validada pela Lista de Presença anexa.
-              <div class="footer-code">CÓDIGO DE AUTENTICIDADE: TIO-ATA-${ata.id.toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}</div>
+              <div class="footer-code">CÓDIGO DE AUTENTICIDADE: TIO-ATA-${effectiveAta.id.toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}</div>
             </div>
 
             <script>
-              window.onload = function() {
+              function triggerPrint() {
                 var img = document.querySelector('.anexo-image');
                 if (img && img.getAttribute('src')) {
                   if (img.complete && img.naturalHeight !== 0) {
-                    setTimeout(function() { window.print(); }, 400);
+                    setTimeout(function() { window.print(); }, 350);
                   } else {
+                    var printed = false;
                     img.onload = function() {
-                      setTimeout(function() { window.print(); }, 400);
+                      if (!printed) {
+                        printed = true;
+                        setTimeout(function() { window.print(); }, 350);
+                      }
                     };
                     img.onerror = function() {
-                      setTimeout(function() { window.print(); }, 400);
+                      if (!printed) {
+                        printed = true;
+                        setTimeout(function() { window.print(); }, 350);
+                      }
                     };
-                    setTimeout(function() { window.print(); }, 1200);
+                    setTimeout(function() {
+                      if (!printed) {
+                        printed = true;
+                        window.print();
+                      }
+                    }, 1500);
                   }
                 } else {
                   setTimeout(function() {
@@ -1279,12 +1353,17 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                   }, 300);
                 }
               }
+
+              if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                triggerPrint();
+              } else {
+                window.addEventListener('load', triggerPrint);
+              }
             </script>
           </body>
         </html>
       `);
       printWindow.document.close();
-    }
   };
 
   // Filtered ATAs list
@@ -1586,7 +1665,12 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     </div>
                   </div>
 
-                  {listaPresencaUrl ? (
+                  {isUploadingPhoto ? (
+                    <div className="bg-indigo-50/80 border border-indigo-200 rounded-xl p-5 flex items-center justify-center gap-3">
+                      <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-indigo-800">Processando e otimizando fotografia da lista de presença...</span>
+                    </div>
+                  ) : listaPresencaUrl ? (
                     <div className="bg-white p-3 rounded-xl border border-indigo-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="flex items-center gap-3 w-full sm:w-auto">
                         <div 
@@ -1734,52 +1818,61 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
                 {/* Free text mode attachment bar */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
-                      <Camera size={16} />
+                  {isUploadingPhoto ? (
+                    <div className="flex items-center gap-2 py-1">
+                      <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-indigo-800">Otimizando fotografia da lista...</span>
                     </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-800">
-                        {listaPresencaUrl ? "Lista de Presença Anexada" : "Anexo de Lista de Presença"}
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
+                          <Camera size={16} />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800">
+                            {listaPresencaUrl ? "Lista de Presença Anexada" : "Anexo de Lista de Presença"}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {listaPresencaUrl ? (listaPresencaNome || "Foto vinculada à ata") : "Anexe uma foto da lista assinada para comprovação de presenças"}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        {listaPresencaUrl ? (listaPresencaNome || "Foto vinculada à ata") : "Anexe uma foto da lista assinada para comprovação de presenças"}
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {listaPresencaUrl ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all"
-                        >
-                          Ver Foto
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleRemoveAttendancePhoto}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
-                          title="Remover foto"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </>
-                    ) : (
-                      <label className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
-                        <Upload size={12} />
-                        <span>Anexar Foto da Lista</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handleAttendancePhotoUpload} 
-                          className="hidden" 
-                        />
-                      </label>
-                    )}
-                  </div>
+                      <div className="flex items-center gap-2">
+                        {listaPresencaUrl ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageModal({ url: listaPresencaUrl, title: listaPresencaNome || "Lista de Presença" })}
+                              className="px-2.5 py-1 text-xs font-bold text-indigo-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all"
+                            >
+                              Ver Foto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRemoveAttendancePhoto}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-all"
+                              title="Remover foto"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        ) : (
+                          <label className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                            <Upload size={12} />
+                            <span>Anexar Foto da Lista</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={handleAttendancePhotoUpload} 
+                              className="hidden" 
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1795,8 +1888,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               </button>
               <button
                 type="button"
+                disabled={isUploadingPhoto}
                 onClick={() => handleSaveAta(false)}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Salvar apenas no banco de dados sem abrir janela de PDF"
               >
                 <Save size={14} />
@@ -1804,12 +1898,22 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               </button>
               <button
                 type="button"
+                disabled={isUploadingPhoto}
                 onClick={() => handleSaveAta(true)}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer select-none"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs transition-all shadow-md cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Salvar registro e gerar/baixar em PDF imediatamente"
               >
-                <Download size={14} />
-                <span>Salvar como PDF e Baixar</span>
+                {isUploadingPhoto ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Carregando foto...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} />
+                    <span>Salvar como PDF e Baixar</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

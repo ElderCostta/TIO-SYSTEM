@@ -390,6 +390,18 @@ async function resetCasesInFirestore(): Promise<void> {
   }
 }
 
+function cleanUndefinedFields(obj: any): any {
+  if (obj === null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map(cleanUndefinedFields);
+  const clean: any = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      clean[key] = cleanUndefinedFields(val);
+    }
+  }
+  return clean;
+}
+
 async function saveAtaToFirestore(ata: any): Promise<void> {
   const existingIndex = serverGeneralAtas.findIndex(a => a.id === ata.id);
   if (existingIndex !== -1) {
@@ -401,7 +413,8 @@ async function saveAtaToFirestore(ata: any): Promise<void> {
   const firestore = getFirestoreDb();
   if (!firestore) return;
   try {
-    await setDoc(doc(firestore, "atas", ata.id), ata);
+    const cleanedAta = cleanUndefinedFields(ata);
+    await setDoc(doc(firestore, "atas", ata.id), cleanedAta, { merge: true });
     console.log(`Ata ${ata.id} salva com sucesso no Firestore.`);
   } catch (error) {
     console.error(`Erro ao salvar ata ${ata.id} no Firestore:`, error);
