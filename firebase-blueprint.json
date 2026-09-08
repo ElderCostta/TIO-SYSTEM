@@ -23,7 +23,8 @@
         "conteudo": { "type": "string" },
         "date": { "type": "string" },
         "listaPresencaUrl": { "type": "string" },
-        "listaPresencaNome": { "type": "string" }
+        "listaPresencaNome": { "type": "string" },
+        "fotosReuniao": { "type": "array", "description": "Fotos da reunião intersetorial" }
       },
       "required": ["id"]
     }

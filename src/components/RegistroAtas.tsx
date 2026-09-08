@@ -26,9 +26,11 @@ import {
   Paperclip,
   Upload,
   Maximize2,
-  ZoomIn
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
-import { GeneralAta, UserSession } from "../types";
+import { GeneralAta, MeetingPhoto, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
 import { 
   formatDateBR, 
@@ -288,6 +290,127 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     }
   };
 
+  // Meeting Photos Attachment State
+  const [fotosReuniao, setFotosReuniao] = React.useState<MeetingPhoto[]>([]);
+  const [isUploadingMeetingPhotos, setIsUploadingMeetingPhotos] = React.useState(false);
+  const [galleryModal, setGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
+
+  // Compress & read meeting photos
+  const handleMeetingPhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingMeetingPhotos(true);
+    const fileList = Array.from(files);
+    let completedCount = 0;
+    const newPhotos: MeetingPhoto[] = [];
+
+    fileList.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 1200;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+              newPhotos.push({
+                id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+                url: dataUrl,
+                nome: file.name,
+                legenda: "",
+                dataUpload: new Date().toISOString()
+              });
+            } else {
+              const rawUrl = event.target?.result as string;
+              newPhotos.push({
+                id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+                url: rawUrl,
+                nome: file.name,
+                legenda: "",
+                dataUpload: new Date().toISOString()
+              });
+            }
+          } catch (err) {
+            const rawUrl = event.target?.result as string;
+            newPhotos.push({
+              id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+              url: rawUrl,
+              nome: file.name,
+              legenda: "",
+              dataUpload: new Date().toISOString()
+            });
+          } finally {
+            completedCount++;
+            if (completedCount === fileList.length) {
+              setIsUploadingMeetingPhotos(false);
+              setFotosReuniao(prev => {
+                const merged = [...prev, ...newPhotos];
+                if (selectedAta) {
+                  setSelectedAta(curr => curr ? { ...curr, fotosReuniao: merged } : null);
+                }
+                return merged;
+              });
+            }
+          }
+        };
+        img.onerror = () => {
+          completedCount++;
+          if (completedCount === fileList.length) {
+            setIsUploadingMeetingPhotos(false);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        completedCount++;
+        if (completedCount === fileList.length) {
+          setIsUploadingMeetingPhotos(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  const handleRemoveMeetingPhoto = (id: string) => {
+    setFotosReuniao(prev => {
+      const updated = prev.filter(p => p.id !== id);
+      if (selectedAta) {
+        setSelectedAta(curr => curr ? { ...curr, fotosReuniao: updated } : null);
+      }
+      return updated;
+    });
+  };
+
+  const handleUpdateMeetingPhotoLegenda = (id: string, legenda: string) => {
+    setFotosReuniao(prev => {
+      const updated = prev.map(p => p.id === id ? { ...p, legenda } : p);
+      if (selectedAta) {
+        setSelectedAta(curr => curr ? { ...curr, fotosReuniao: updated } : null);
+      }
+      return updated;
+    });
+  };
+
   // Load and Sync from LocalStorage, Server API, and Firestore real-time subscription
   React.useEffect(() => {
     let isMounted = true;
@@ -329,7 +452,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           id: doc.id,
           ...data,
           listaPresencaUrl: data.listaPresencaUrl || undefined,
-          listaPresencaNome: data.listaPresencaNome || undefined
+          listaPresencaNome: data.listaPresencaNome || undefined,
+          fotosReuniao: data.fotosReuniao || []
         } as GeneralAta;
       });
 
@@ -365,6 +489,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     numero: ata.numero || 1,
                     listaPresencaUrl: ata.listaPresencaUrl || "",
                     listaPresencaNome: ata.listaPresencaNome || "",
+                    fotosReuniao: ata.fotosReuniao || [],
                     createdAt: serverTimestamp()
                   }, { merge: true });
                 } catch (err) {
@@ -392,6 +517,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 numero: ata.numero || 1,
                 listaPresencaUrl: ata.listaPresencaUrl || "",
                 listaPresencaNome: ata.listaPresencaNome || "",
+                fotosReuniao: ata.fotosReuniao || [],
                 createdAt: serverTimestamp()
               }, { merge: true });
             } catch (err) {
@@ -438,7 +564,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
           body: JSON.stringify({ ata })
         }).catch(err => console.error("Erro no salvamento da ata no servidor:", err));
 
-        // Direct write to Firestore including attendance list attachments
+        // Direct write to Firestore including attendance list attachments and meeting photos
         try {
           await setDoc(doc(db, "atas", ata.id), {
             id: ata.id,
@@ -453,6 +579,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             numero: ata.numero || 1,
             listaPresencaUrl: ata.listaPresencaUrl || "",
             listaPresencaNome: ata.listaPresencaNome || "",
+            fotosReuniao: ata.fotosReuniao || [],
             createdAt: serverTimestamp()
           }, { merge: true });
         } catch (err) {
@@ -576,6 +703,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     setEditorMarkdown(generatedText);
     setListaPresencaUrl(undefined);
     setListaPresencaNome(undefined);
+    setFotosReuniao([]);
     setSelectedAta(null);
     setIsCreating(true);
     setIsEditing(false);
@@ -593,6 +721,7 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     setFormCoordinator(ata.coordinator || activeSession.username);
     setListaPresencaUrl(ata.listaPresencaUrl);
     setListaPresencaNome(ata.listaPresencaNome);
+    setFotosReuniao(ata.fotosReuniao || []);
     setIsCreating(false);
     setIsEditing(true);
     setActiveTab("markdown"); // For editing existing, load text mode with ability to switch
@@ -625,7 +754,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         user: activeSession.username,
         numero: nextNum,
         listaPresencaUrl: listaPresencaUrl,
-        listaPresencaNome: listaPresencaNome
+        listaPresencaNome: listaPresencaNome,
+        fotosReuniao: fotosReuniao
       };
       savedAtaObj = newAta;
       saveAtas([newAta, ...atas], { type: "save", payload: newAta });
@@ -641,7 +771,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             location: formLocation || a.location,
             coordinator: formCoordinator || a.coordinator,
             listaPresencaUrl: listaPresencaUrl,
-            listaPresencaNome: listaPresencaNome
+            listaPresencaNome: listaPresencaNome,
+            fotosReuniao: fotosReuniao
           };
           return savedAtaObj;
         }
@@ -657,7 +788,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
       const ataToPrint: GeneralAta = {
         ...savedAtaObj,
         listaPresencaUrl: savedAtaObj.listaPresencaUrl || listaPresencaUrl,
-        listaPresencaNome: savedAtaObj.listaPresencaNome || listaPresencaNome
+        listaPresencaNome: savedAtaObj.listaPresencaNome || listaPresencaNome,
+        fotosReuniao: (savedAtaObj.fotosReuniao && savedAtaObj.fotosReuniao.length > 0) ? savedAtaObj.fotosReuniao : fotosReuniao
       };
       handlePrintAta(ataToPrint);
     }
@@ -842,7 +974,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
     const effectiveAta: GeneralAta = {
       ...ata,
       listaPresencaUrl: ata.listaPresencaUrl || (selectedAta?.id === ata.id ? listaPresencaUrl : undefined) || (isCreating ? listaPresencaUrl : undefined) || ata.listaPresencaUrl,
-      listaPresencaNome: ata.listaPresencaNome || (selectedAta?.id === ata.id ? listaPresencaNome : undefined) || (isCreating ? listaPresencaNome : undefined) || ata.listaPresencaNome
+      listaPresencaNome: ata.listaPresencaNome || (selectedAta?.id === ata.id ? listaPresencaNome : undefined) || (isCreating ? listaPresencaNome : undefined) || ata.listaPresencaNome,
+      fotosReuniao: (ata.fotosReuniao && ata.fotosReuniao.length > 0) ? ata.fotosReuniao : (selectedAta?.id === ata.id ? fotosReuniao : undefined) || (isCreating ? fotosReuniao : undefined) || ata.fotosReuniao || []
     };
 
     const printWindow = window.open("", "_blank");
@@ -1112,6 +1245,35 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 font-family: monospace;
                 text-align: center;
               }
+              .fotos-reuniao-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+                margin-top: 14px;
+              }
+              .foto-item {
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 8px;
+                text-align: center;
+                page-break-inside: avoid;
+                break-inside: avoid;
+              }
+              .foto-reuniao-img {
+                width: 100%;
+                max-height: 280px;
+                height: 220px;
+                object-fit: cover;
+                border-radius: 4px;
+                display: block;
+              }
+              .foto-item-caption {
+                font-size: 10px;
+                color: #1e293b;
+                margin-top: 6px;
+                line-height: 1.3;
+              }
               .anexo-placeholder-box {
                 background-color: #f8fafc;
                 border: 1px dashed #94a3b8;
@@ -1315,6 +1477,28 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               `}
             </div>
 
+            <!-- Meeting Photos Section (Anexo II) -->
+            ${(effectiveAta.fotosReuniao && effectiveAta.fotosReuniao.length > 0) ? `
+              <div class="anexo-presenca-page">
+                <div class="anexo-presenca-header">
+                  <div class="anexo-tag" style="background-color: #7c3aed;">ANEXO II</div>
+                  <div class="anexo-title">REGISTRO FOTOGRÁFICO DA REUNIÃO</div>
+                  <div class="anexo-subtitle">Fotografias comprobatórias e registros visuais das atividades, participantes e deliberações da reunião intersetorial:</div>
+                </div>
+
+                <div class="fotos-reuniao-grid">
+                  ${effectiveAta.fotosReuniao.map((f, i) => `
+                    <div class="foto-item">
+                      <img src="${f.url}" alt="${f.legenda || f.nome || `Foto ${i + 1}`}" class="anexo-image foto-reuniao-img" loading="eager" decoding="sync" />
+                      <div class="foto-item-caption">
+                        <strong>Foto ${i + 1}:</strong> ${f.legenda ? f.legenda : (f.nome || 'Registro da Reunião')}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
             <div class="document-footer">
               Este documento é um registro oficial gerado pelo TIO System (Rede Intersetorial). A comprovação de presença dos órgãos é validada pela Lista de Presença anexa.
               <div class="footer-code">CÓDIGO DE AUTENTICIDADE: TIO-ATA-${effectiveAta.id.toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}</div>
@@ -1322,36 +1506,34 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
 
             <script>
               function triggerPrint() {
-                var img = document.querySelector('.anexo-image');
-                if (img && img.getAttribute('src')) {
-                  if (img.complete && img.naturalHeight !== 0) {
-                    setTimeout(function() { window.print(); }, 350);
-                  } else {
-                    var printed = false;
-                    img.onload = function() {
-                      if (!printed) {
-                        printed = true;
-                        setTimeout(function() { window.print(); }, 350);
-                      }
-                    };
-                    img.onerror = function() {
-                      if (!printed) {
-                        printed = true;
-                        setTimeout(function() { window.print(); }, 350);
-                      }
-                    };
-                    setTimeout(function() {
-                      if (!printed) {
-                        printed = true;
-                        window.print();
-                      }
-                    }, 1500);
-                  }
-                } else {
-                  setTimeout(function() {
-                    window.print();
-                  }, 300);
+                var imgs = Array.from(document.querySelectorAll('.anexo-image'));
+                if (imgs.length === 0) {
+                  setTimeout(function() { window.print(); }, 300);
+                  return;
                 }
+                var loaded = 0;
+                var printed = false;
+                function checkAll() {
+                  loaded++;
+                  if (loaded >= imgs.length && !printed) {
+                    printed = true;
+                    setTimeout(function() { window.print(); }, 350);
+                  }
+                }
+                imgs.forEach(function(img) {
+                  if (img.complete && img.naturalHeight !== 0) {
+                    checkAll();
+                  } else {
+                    img.addEventListener('load', checkAll);
+                    img.addEventListener('error', checkAll);
+                  }
+                });
+                setTimeout(function() {
+                  if (!printed) {
+                    printed = true;
+                    window.print();
+                  }
+                }, 2000);
               }
 
               if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -1771,6 +1953,110 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                   )}
                 </div>
 
+                {/* 7. MEETING PHOTOS ATTACHMENT BLOCK */}
+                <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-extrabold text-purple-700 uppercase tracking-wider block">
+                        7. Anexo: Fotos das Reuniões (Registro Fotográfico)
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Anexe fotos dos participantes, momentos de debate e deliberações da reunião intersetorial para constar no documento.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-2.5 py-1 rounded-full shrink-0">
+                      {fotosReuniao.length} {fotosReuniao.length === 1 ? "foto" : "fotos"}
+                    </span>
+                  </div>
+
+                  {/* Upload Actions */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <label className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                      <Upload size={13} />
+                      <span>{fotosReuniao.length > 0 ? "Adicionar Mais Fotos" : "Selecionar Fotos da Reunião"}</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple
+                        disabled={isUploadingMeetingPhotos}
+                        onChange={handleMeetingPhotosUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                    <label className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                      <Camera size={13} />
+                      <span>Tirar Foto</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment"
+                        disabled={isUploadingMeetingPhotos}
+                        onChange={handleMeetingPhotosUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                    {isUploadingMeetingPhotos && (
+                      <div className="flex items-center gap-2 text-xs font-semibold text-purple-700">
+                        <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Processando fotos...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Attached Photos Grid */}
+                  {fotosReuniao.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
+                      {fotosReuniao.map((foto, idx) => (
+                        <div key={foto.id} className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-sm flex flex-col space-y-2 group">
+                          <div className="relative w-full h-32 rounded-lg overflow-hidden bg-slate-100 border border-slate-100">
+                            <img 
+                              src={foto.url} 
+                              alt={foto.legenda || foto.nome || `Foto ${idx + 1}`} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setGalleryModal({ photos: fotosReuniao, currentIndex: idx, title: "Registro Fotográfico da Reunião" })}
+                              className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer"
+                              title="Clique para ampliar"
+                            >
+                              <ZoomIn size={20} />
+                            </button>
+                            <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                              #{idx + 1}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <input 
+                              type="text"
+                              placeholder="Legenda da foto (ex: Mesa de abertura)"
+                              value={foto.legenda || ""}
+                              onChange={(e) => handleUpdateMeetingPhotoLegenda(foto.id, e.target.value)}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] focus:bg-white focus:outline-none focus:border-purple-400"
+                            />
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                              <span className="truncate max-w-[140px]">{foto.nome || "foto.jpg"}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMeetingPhoto(foto.id)}
+                                className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded transition-colors"
+                                title="Remover foto"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="border border-dashed border-slate-200 rounded-xl p-4 text-center text-slate-400 text-xs">
+                      Nenhuma foto da reunião anexada. Utilize os botões acima para selecionar do seu aparelho ou tirar novas fotos.
+                    </div>
+                  )}
+                </div>
+
               </div>
             ) : (
               <div className="flex-1 flex flex-col space-y-3">
@@ -1874,6 +2160,64 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     </>
                   )}
                 </div>
+
+                {/* Free text mode Meeting Photos attachment bar */}
+                <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  {isUploadingMeetingPhotos ? (
+                    <div className="flex items-center gap-2 py-1">
+                      <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-purple-800">Processando fotos da reunião...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-purple-100 text-purple-700 rounded-lg shrink-0">
+                          <Camera size={16} />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                            <span>Fotos da Reunião (Anexo II)</span>
+                            {fotosReuniao.length > 0 && (
+                              <span className="bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full text-[10px]">
+                                {fotosReuniao.length} {fotosReuniao.length === 1 ? "foto" : "fotos"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            {fotosReuniao.length > 0
+                              ? "Fotografias salvas para compor o anexo visual da ata"
+                              : "Anexe registros fotográficos das atividades e deliberações da reunião"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {fotosReuniao.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setGalleryModal({ photos: fotosReuniao, currentIndex: 0, title: "Registro Fotográfico da Reunião" })}
+                            className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-white border border-purple-200 hover:bg-purple-50 rounded-lg transition-all flex items-center gap-1"
+                          >
+                            <ZoomIn size={12} />
+                            <span>Ver Galeria ({fotosReuniao.length})</span>
+                          </button>
+                        )}
+                        <label className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-sm">
+                          <Upload size={12} />
+                          <span>{fotosReuniao.length > 0 ? "Adicionar Mais" : "Anexar Fotos"}</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            multiple
+                            disabled={isUploadingMeetingPhotos}
+                            onChange={handleMeetingPhotosUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1955,7 +2299,8 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     user: selectedAta?.user || activeSession.username,
                     numero: selectedAta?.numero,
                     listaPresencaUrl: listaPresencaUrl,
-                    listaPresencaNome: listaPresencaNome
+                    listaPresencaNome: listaPresencaNome,
+                    fotosReuniao: fotosReuniao
                   })}
                   className="p-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg transition-all cursor-pointer"
                   title="Imprimir documento de teste"
@@ -2024,6 +2369,68 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 ) : (
                   <div className="p-3.5 bg-white rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-[11px]">
                     Validação de presenças mediante a lista física arquivada junto à coordenação.
+                  </div>
+                )}
+              </div>
+
+              {/* Meeting Photos preview at the end of the document - Anexo II */}
+              <div className="mt-8 pt-5 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Camera size={14} className="text-purple-600" />
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                      Anexo II: Fotos das Reuniões — Registro Fotográfico
+                    </span>
+                  </div>
+                  {fotosReuniao.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {fotosReuniao.length} {fotosReuniao.length === 1 ? "foto" : "fotos"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGalleryModal({ photos: fotosReuniao, currentIndex: 0, title: "Registro Fotográfico da Reunião" })}
+                        className="text-[10px] font-bold text-purple-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <ZoomIn size={11} /> Ver galeria
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-[9px] text-slate-400 italic">
+                      Nenhuma foto vinculada
+                    </span>
+                  )}
+                </div>
+
+                {fotosReuniao.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    {fotosReuniao.map((foto, idx) => (
+                      <div 
+                        key={foto.id} 
+                        onClick={() => setGalleryModal({ photos: fotosReuniao, currentIndex: idx, title: "Registro Fotográfico da Reunião" })}
+                        className="bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm cursor-pointer hover:border-purple-300 transition-all group"
+                      >
+                        <div className="relative aspect-video w-full rounded overflow-hidden bg-slate-100">
+                          <img 
+                            src={foto.url} 
+                            alt={foto.legenda || foto.nome || `Foto ${idx + 1}`} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                            <ZoomIn size={14} />
+                          </div>
+                        </div>
+                        {foto.legenda && (
+                          <p className="text-[9px] text-slate-600 font-medium truncate mt-1 text-center">
+                            {foto.legenda}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-white rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-[11px]">
+                    Nenhum registro fotográfico foi anexado para esta ata.
                   </div>
                 )}
               </div>
@@ -2098,9 +2505,9 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     </div>
 
                     {/* Quick actions row */}
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
-                      <div>
-                        {a.listaPresencaUrl ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-5 pt-4 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {a.listaPresencaUrl && (
                           <button
                             type="button"
                             onClick={() => setPreviewImageModal({ url: a.listaPresencaUrl!, title: `Lista de Presença - ${a.numero ? `Ata ${a.numero}` : 'Ata'}` })}
@@ -2110,8 +2517,22 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                             <Camera size={12} />
                             <span>Lista Anexa</span>
                           </button>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 italic">Sem anexo digital</span>
+                        )}
+
+                        {a.fotosReuniao && a.fotosReuniao.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setGalleryModal({ photos: a.fotosReuniao!, currentIndex: 0, title: `Fotos da Reunião - ${a.numero ? `Ata ${a.numero}` : 'Ata'}` })}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                            title={`Visualizar ${a.fotosReuniao.length} fotos desta reunião`}
+                          >
+                            <ImageIcon size={12} />
+                            <span>{a.fotosReuniao.length} {a.fotosReuniao.length === 1 ? "Foto" : "Fotos"}</span>
+                          </button>
+                        )}
+
+                        {!a.listaPresencaUrl && (!a.fotosReuniao || a.fotosReuniao.length === 0) && (
+                          <span className="text-[10px] text-slate-400 italic">Sem anexos digitais</span>
                         )}
                       </div>
 
@@ -2206,6 +2627,123 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               >
                 Fechar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN MEETING PHOTOS GALLERY MODAL */}
+      {galleryModal && galleryModal.photos.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative max-w-5xl w-full max-h-[94vh] bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/10">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-950/80 text-white border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-600/30 text-purple-400 rounded-xl border border-purple-500/30">
+                  <ImageIcon size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold">{galleryModal.title}</h4>
+                  <p className="text-[11px] text-slate-400">
+                    Foto {galleryModal.currentIndex + 1} de {galleryModal.photos.length}
+                    {galleryModal.photos[galleryModal.currentIndex]?.nome && ` • ${galleryModal.photos[galleryModal.currentIndex].nome}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGalleryModal(null)}
+                className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
+                title="Fechar galeria"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Main Stage with Nav Arrows */}
+            <div className="relative flex-1 p-4 bg-slate-950 flex items-center justify-center overflow-hidden min-h-[50vh] max-h-[68vh]">
+              {galleryModal.photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(prev => prev ? {
+                    ...prev,
+                    currentIndex: (prev.currentIndex - 1 + prev.photos.length) % prev.photos.length
+                  } : null)}
+                  className="absolute left-4 z-10 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur transition-all border border-white/10 cursor-pointer shadow-lg"
+                  title="Foto anterior"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+
+              <img
+                src={galleryModal.photos[galleryModal.currentIndex]?.url}
+                alt={galleryModal.photos[galleryModal.currentIndex]?.legenda || `Foto ${galleryModal.currentIndex + 1}`}
+                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl transition-all duration-200"
+              />
+
+              {galleryModal.photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(prev => prev ? {
+                    ...prev,
+                    currentIndex: (prev.currentIndex + 1) % prev.photos.length
+                  } : null)}
+                  className="absolute right-4 z-10 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur transition-all border border-white/10 cursor-pointer shadow-lg"
+                  title="Próxima foto"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+            </div>
+
+            {/* Photo Caption & Info */}
+            {galleryModal.photos[galleryModal.currentIndex]?.legenda && (
+              <div className="px-6 py-2.5 bg-slate-950/60 border-t border-white/5 text-center">
+                <p className="text-xs text-slate-300 font-medium italic">
+                  "{galleryModal.photos[galleryModal.currentIndex]?.legenda}"
+                </p>
+              </div>
+            )}
+
+            {/* Thumbnails row & footer */}
+            <div className="px-6 py-3 bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
+              {/* Thumbnails */}
+              <div className="flex items-center gap-2 overflow-x-auto max-w-full py-1">
+                {galleryModal.photos.map((ph, idx) => (
+                  <button
+                    key={ph.id}
+                    type="button"
+                    onClick={() => setGalleryModal(prev => prev ? { ...prev, currentIndex: idx } : null)}
+                    className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                      idx === galleryModal.currentIndex 
+                        ? "border-purple-500 scale-105 shadow-md shadow-purple-500/20" 
+                        : "border-transparent opacity-50 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={ph.url} alt={ph.legenda || `Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={galleryModal.photos[galleryModal.currentIndex]?.url}
+                  download={galleryModal.photos[galleryModal.currentIndex]?.nome || `foto_reuniao_${galleryModal.currentIndex + 1}.jpg`}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5"
+                  title="Baixar imagem original"
+                >
+                  <Download size={13} />
+                  <span>Baixar</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(null)}
+                  className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  Concluir
+                </button>
+              </div>
             </div>
           </div>
         </div>

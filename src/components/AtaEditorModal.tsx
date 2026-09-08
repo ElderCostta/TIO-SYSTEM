@@ -1,16 +1,35 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import { FileText, Copy, Check, X, Printer, Edit3, Eye, Save, Download, Camera, Upload, Trash2, ZoomIn, ImageIcon } from "lucide-react";
+import { 
+  FileText, 
+  Copy, 
+  Check, 
+  X, 
+  Printer, 
+  Edit3, 
+  Eye, 
+  Save, 
+  Download, 
+  Camera, 
+  Upload, 
+  Trash2, 
+  ZoomIn, 
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
+import { MeetingPhoto } from "../types";
 
 interface AtaEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMarkdown: string;
-  onSave: (newMarkdown: string, listaPresencaUrl?: string, listaPresencaNome?: string) => void;
+  onSave: (newMarkdown: string, listaPresencaUrl?: string, listaPresencaNome?: string, fotosReuniao?: MeetingPhoto[]) => void;
   readOnly: boolean;
   title?: string;
   listaPresencaUrl?: string;
   listaPresencaNome?: string;
+  fotosReuniao?: MeetingPhoto[];
 }
 
 export default function AtaEditorModal({
@@ -21,14 +40,18 @@ export default function AtaEditorModal({
   readOnly,
   title = "Ata de Reunião Intersetorial",
   listaPresencaUrl,
-  listaPresencaNome
+  listaPresencaNome,
+  fotosReuniao
 }: AtaEditorModalProps) {
   const [markdown, setMarkdown] = React.useState(initialMarkdown);
   const [activeTab, setActiveTab] = React.useState<"preview" | "edit">("preview");
   const [copied, setCopied] = React.useState(false);
   const [currentListaUrl, setCurrentListaUrl] = React.useState<string | undefined>(listaPresencaUrl);
   const [currentListaNome, setCurrentListaNome] = React.useState<string | undefined>(listaPresencaNome);
+  const [currentFotosReuniao, setCurrentFotosReuniao] = React.useState<MeetingPhoto[]>(fotosReuniao || []);
+  const [isUploadingPhotos, setIsUploadingPhotos] = React.useState(false);
   const [zoomModalOpen, setZoomModalOpen] = React.useState(false);
+  const [galleryModal, setGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
 
   // Sync markdown with initialMarkdown when modal opens
   React.useEffect(() => {
@@ -37,8 +60,9 @@ export default function AtaEditorModal({
       setActiveTab(readOnly ? "preview" : "edit");
       setCurrentListaUrl(listaPresencaUrl);
       setCurrentListaNome(listaPresencaNome);
+      setCurrentFotosReuniao(fotosReuniao || []);
     }
-  }, [isOpen, initialMarkdown, readOnly, listaPresencaUrl, listaPresencaNome]);
+  }, [isOpen, initialMarkdown, readOnly, listaPresencaUrl, listaPresencaNome, fotosReuniao]);
 
   if (!isOpen) return null;
 
@@ -91,6 +115,89 @@ export default function AtaEditorModal({
       img.src = base64;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleMeetingPhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingPhotos(true);
+    const fileList = Array.from(files);
+    let processedCount = 0;
+    const newPhotos: MeetingPhoto[] = [];
+
+    fileList.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const base64 = ev.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", 0.75);
+            newPhotos.push({
+              id: `foto-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+              url: compressed,
+              nome: file.name,
+              legenda: ""
+            });
+          } else {
+            newPhotos.push({
+              id: `foto-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+              url: base64,
+              nome: file.name,
+              legenda: ""
+            });
+          }
+
+          processedCount++;
+          if (processedCount === fileList.length) {
+            setCurrentFotosReuniao(prev => [...prev, ...newPhotos]);
+            setIsUploadingPhotos(false);
+          }
+        };
+        img.onerror = () => {
+          processedCount++;
+          if (processedCount === fileList.length) {
+            if (newPhotos.length > 0) {
+              setCurrentFotosReuniao(prev => [...prev, ...newPhotos]);
+            }
+            setIsUploadingPhotos(false);
+          }
+        };
+        img.src = base64;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveMeetingPhoto = (photoId: string) => {
+    setCurrentFotosReuniao(prev => prev.filter(p => p.id !== photoId));
+  };
+
+  const handleUpdateMeetingPhotoLegenda = (photoId: string, legenda: string) => {
+    setCurrentFotosReuniao(prev => prev.map(p => p.id === photoId ? { ...p, legenda } : p));
   };
 
   // Helper markdown compiler for printing
@@ -514,6 +621,47 @@ export default function AtaEditorModal({
                   display: block !important;
                   margin: 0 auto !important;
                 }
+                .fotos-grid {
+                  display: grid !important;
+                  grid-template-columns: repeat(2, 1fr) !important;
+                  gap: 14px !important;
+                  margin-top: 14px !important;
+                }
+                .foto-grid-card {
+                  border: 1px solid #cbd5e1 !important;
+                  border-radius: 6px !important;
+                  overflow: hidden !important;
+                  background: #ffffff !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                  display: flex !important;
+                  flex-direction: column !important;
+                }
+                .foto-grid-img {
+                  width: 100% !important;
+                  height: 230px !important;
+                  object-fit: cover !important;
+                  display: block !important;
+                }
+                .foto-grid-caption {
+                  padding: 8px 10px !important;
+                  font-size: 10px !important;
+                  color: #334155 !important;
+                  background: #f8fafc !important;
+                  border-top: 1px solid #e2e8f0 !important;
+                  text-align: center !important;
+                }
+                .foto-counter-badge {
+                  display: inline-block !important;
+                  font-size: 8px !important;
+                  font-weight: 700 !important;
+                  background: #7e22ce !important;
+                  color: #ffffff !important;
+                  padding: 2px 6px !important;
+                  border-radius: 4px !important;
+                  margin-bottom: 4px !important;
+                  text-transform: uppercase !important;
+                }
                 .document-footer {
                   page-break-inside: avoid !important;
                 }
@@ -606,42 +754,65 @@ export default function AtaEditorModal({
               `}
             </div>
 
+            ${currentFotosReuniao && currentFotosReuniao.length > 0 ? `
+              <!-- Meeting Photos Section - Anexo II -->
+              <div class="anexo-presenca-page" style="page-break-before: always; break-before: page;">
+                <div class="anexo-presenca-header">
+                  <div class="anexo-tag" style="background: #7e22ce;">ANEXO II: REGISTRO FOTOGRÁFICO</div>
+                  <div class="anexo-title">FOTOS DA REUNIÃO — REGISTRO FOTOGRÁFICO INTERSETORIAL</div>
+                  <div class="anexo-subtitle">Registros visuais e fotográficos capturados durante a sessão deliberativa intersetorial:</div>
+                </div>
+
+                <div class="fotos-grid">
+                  ${currentFotosReuniao.map((f, idx) => `
+                    <div class="foto-grid-card">
+                      <img src="${f.url}" alt="${f.legenda || f.nome || `Foto ${idx + 1}`}" class="foto-grid-img" loading="eager" decoding="sync" />
+                      <div class="foto-grid-caption">
+                        <span class="foto-counter-badge">Foto ${idx + 1} de ${currentFotosReuniao.length}</span>
+                        ${f.legenda ? `<div><strong>${f.legenda}</strong></div>` : ''}
+                        ${f.nome ? `<div style="font-size: 8.5px; color: #64748b; font-family: monospace; margin-top: 2px;">${f.nome}</div>` : ''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
             <div class="document-footer">
               Este documento é um registro oficial gerado pelo TIO System. A frequência dos participantes é comprovada pela Lista de Presença anexa.
             </div>
 
             <script>
               function triggerPrint() {
-                var img = document.querySelector('.anexo-image');
-                if (img && img.getAttribute('src')) {
-                  if (img.complete && img.naturalHeight !== 0) {
-                    setTimeout(function() { window.print(); }, 350);
-                  } else {
-                    var printed = false;
-                    img.onload = function() {
-                      if (!printed) {
-                        printed = true;
-                        setTimeout(function() { window.print(); }, 350);
-                      }
-                    };
-                    img.onerror = function() {
-                      if (!printed) {
-                        printed = true;
-                        setTimeout(function() { window.print(); }, 350);
-                      }
-                    };
-                    setTimeout(function() {
-                      if (!printed) {
-                        printed = true;
-                        window.print();
-                      }
-                    }, 1500);
-                  }
-                } else {
-                  setTimeout(function() {
-                    window.print();
-                  }, 300);
+                var images = document.querySelectorAll('.anexo-image, .foto-grid-img');
+                var total = images.length;
+                if (total === 0) {
+                  setTimeout(function() { window.print(); }, 300);
+                  return;
                 }
+                var loaded = 0;
+                var printed = false;
+                function checkComplete() {
+                  loaded++;
+                  if (loaded >= total && !printed) {
+                    printed = true;
+                    setTimeout(function() { window.print(); }, 350);
+                  }
+                }
+                images.forEach(function(img) {
+                  if (img.complete && img.naturalHeight !== 0) {
+                    checkComplete();
+                  } else {
+                    img.onload = checkComplete;
+                    img.onerror = checkComplete;
+                  }
+                });
+                setTimeout(function() {
+                  if (!printed) {
+                    printed = true;
+                    window.print();
+                  }
+                }, 2000);
               }
 
               if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -658,7 +829,7 @@ export default function AtaEditorModal({
   };
 
   const handleSave = () => {
-    onSave(markdown, currentListaUrl, currentListaNome);
+    onSave(markdown, currentListaUrl, currentListaNome, currentFotosReuniao);
     onClose();
   };
 
@@ -808,6 +979,104 @@ export default function AtaEditorModal({
                   </label>
                 )}
               </div>
+
+              {/* Meeting Photos Attachment Section */}
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                      <ImageIcon size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                        <span>Fotos das Reuniões (Registro Fotográfico)</span>
+                        {currentFotosReuniao.length > 0 && (
+                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                            {currentFotosReuniao.length} {currentFotosReuniao.length === 1 ? "foto" : "fotos"}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Anexe fotos dos participantes e momentos da reunião para compor o Anexo II do documento oficial
+                      </p>
+                    </div>
+                  </div>
+
+                  {currentFotosReuniao.length > 0 && (
+                    <label className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all">
+                      <Upload size={13} />
+                      <span>Adicionar Mais</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleMeetingPhotosUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {isUploadingPhotos && (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-700 flex items-center gap-2 animate-pulse">
+                    <span>Processando e comprimindo fotos da reunião...</span>
+                  </div>
+                )}
+
+                {currentFotosReuniao.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {currentFotosReuniao.map((photo, idx) => (
+                      <div key={photo.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-2 relative group">
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-200 border border-slate-200 shadow-inner">
+                          <img
+                            src={photo.url}
+                            alt={photo.legenda || `Foto ${idx + 1}`}
+                            className="w-full h-full object-cover cursor-pointer hover:scale-102 transition-transform"
+                            onClick={() => setGalleryModal({ photos: currentFotosReuniao, currentIndex: idx, title: "Fotos da Reunião" })}
+                          />
+                          <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold rounded">
+                            #{idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMeetingPhoto(photo.id)}
+                            className="absolute top-1.5 right-1.5 p-1 bg-rose-600/90 hover:bg-rose-700 text-white rounded-md shadow transition-all cursor-pointer"
+                            title="Remover foto"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={photo.legenda || ""}
+                          onChange={(e) => handleUpdateMeetingPhotoLegenda(photo.id, e.target.value)}
+                          placeholder="Legenda da foto (opcional)..."
+                          className="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-slate-200 hover:border-purple-400 hover:bg-purple-50/20 rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all text-center">
+                    <Upload size={20} className="text-purple-400" />
+                    <div>
+                      <span className="text-xs font-bold text-slate-700 block">
+                        Clique para selecionar fotos da reunião (múltiplas permitidas)
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        As imagens serão otimizadas e incluídas no Anexo II do PDF oficial
+                      </span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleMeetingPhotosUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           ) : (
             <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
@@ -860,6 +1129,67 @@ export default function AtaEditorModal({
                 ) : (
                   <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
                     Validação de presenças mediante a lista física arquivada junto à coordenação da rede.
+                  </div>
+                )}
+              </div>
+
+              {/* Meeting Photos Preview Block - Anexo II */}
+              <div className="pt-6 border-t border-slate-200/80">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded font-bold">
+                      Anexo II
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 uppercase flex items-center gap-1.5">
+                      <ImageIcon size={14} className="text-purple-600" />
+                      Fotos das Reuniões — Registro Fotográfico
+                    </span>
+                  </div>
+                  {currentFotosReuniao.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                        {currentFotosReuniao.length} {currentFotosReuniao.length === 1 ? "foto" : "fotos"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setGalleryModal({ photos: currentFotosReuniao, currentIndex: 0, title: "Registro Fotográfico da Reunião" })}
+                        className="text-purple-600 hover:text-purple-800 font-bold flex items-center gap-1 cursor-pointer text-xs hover:underline"
+                      >
+                        <ZoomIn size={13} /> Ver Galeria
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {currentFotosReuniao.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                    {currentFotosReuniao.map((photo, idx) => (
+                      <div
+                        key={photo.id}
+                        onClick={() => setGalleryModal({ photos: currentFotosReuniao, currentIndex: idx, title: "Registro Fotográfico da Reunião" })}
+                        className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-purple-300 transition-all group"
+                      >
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-100">
+                          <img
+                            src={photo.url}
+                            alt={photo.legenda || photo.nome || `Foto ${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity">
+                            <ZoomIn size={16} />
+                          </div>
+                        </div>
+                        {photo.legenda && (
+                          <p className="text-[10px] text-slate-600 font-medium truncate mt-1.5 text-center">
+                            {photo.legenda}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+                    Nenhum registro fotográfico foi anexado para esta reunião.
                   </div>
                 )}
               </div>
@@ -942,6 +1272,123 @@ export default function AtaEditorModal({
                 alt="Lista de Presença Ampliada"
                 className="max-h-full max-w-full object-contain rounded shadow-lg"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN MEETING PHOTOS GALLERY MODAL */}
+      {galleryModal && galleryModal.photos.length > 0 && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative max-w-5xl w-full max-h-[94vh] bg-slate-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-white/10">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-950/80 text-white border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-600/30 text-purple-400 rounded-xl border border-purple-500/30">
+                  <ImageIcon size={18} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold">{galleryModal.title}</h4>
+                  <p className="text-[11px] text-slate-400">
+                    Foto {galleryModal.currentIndex + 1} de {galleryModal.photos.length}
+                    {galleryModal.photos[galleryModal.currentIndex]?.nome && ` • ${galleryModal.photos[galleryModal.currentIndex].nome}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGalleryModal(null)}
+                className="p-2 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
+                title="Fechar galeria"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Main Stage with Nav Arrows */}
+            <div className="relative flex-1 p-4 bg-slate-950 flex items-center justify-center overflow-hidden min-h-[50vh] max-h-[68vh]">
+              {galleryModal.photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(prev => prev ? {
+                    ...prev,
+                    currentIndex: (prev.currentIndex - 1 + prev.photos.length) % prev.photos.length
+                  } : null)}
+                  className="absolute left-4 z-10 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur transition-all border border-white/10 cursor-pointer shadow-lg"
+                  title="Foto anterior"
+                >
+                  <ChevronLeft size={22} />
+                </button>
+              )}
+
+              <img
+                src={galleryModal.photos[galleryModal.currentIndex]?.url}
+                alt={galleryModal.photos[galleryModal.currentIndex]?.legenda || `Foto ${galleryModal.currentIndex + 1}`}
+                className="max-h-full max-w-full object-contain rounded-xl shadow-2xl transition-all duration-200"
+              />
+
+              {galleryModal.photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(prev => prev ? {
+                    ...prev,
+                    currentIndex: (prev.currentIndex + 1) % prev.photos.length
+                  } : null)}
+                  className="absolute right-4 z-10 p-3 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white backdrop-blur transition-all border border-white/10 cursor-pointer shadow-lg"
+                  title="Próxima foto"
+                >
+                  <ChevronRight size={22} />
+                </button>
+              )}
+            </div>
+
+            {/* Photo Caption & Info */}
+            {galleryModal.photos[galleryModal.currentIndex]?.legenda && (
+              <div className="px-6 py-2.5 bg-slate-950/60 border-t border-white/5 text-center">
+                <p className="text-xs text-slate-300 font-medium italic">
+                  "{galleryModal.photos[galleryModal.currentIndex]?.legenda}"
+                </p>
+              </div>
+            )}
+
+            {/* Thumbnails row & footer */}
+            <div className="px-6 py-3 bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
+              {/* Thumbnails */}
+              <div className="flex items-center gap-2 overflow-x-auto max-w-full py-1">
+                {galleryModal.photos.map((ph, idx) => (
+                  <button
+                    key={ph.id}
+                    type="button"
+                    onClick={() => setGalleryModal(prev => prev ? { ...prev, currentIndex: idx } : null)}
+                    className={`relative w-12 h-12 rounded-lg overflow-hidden border-2 transition-all shrink-0 cursor-pointer ${
+                      idx === galleryModal.currentIndex 
+                        ? "border-purple-500 scale-105 shadow-md shadow-purple-500/20" 
+                        : "border-transparent opacity-50 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={ph.url} alt={ph.legenda || `Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={galleryModal.photos[galleryModal.currentIndex]?.url}
+                  download={galleryModal.photos[galleryModal.currentIndex]?.nome || `foto_reuniao_${galleryModal.currentIndex + 1}.jpg`}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5"
+                  title="Baixar imagem original"
+                >
+                  <Download size={13} />
+                  <span>Baixar</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setGalleryModal(null)}
+                  className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  Concluir
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -55,6 +55,14 @@ export interface Referral {
   }>;
 }
 
+export interface MeetingPhoto {
+  id: string;
+  url: string;
+  nome?: string;
+  legenda?: string;
+  dataUpload?: string;
+}
+
 export interface Meeting {
   id: string;
   date: string;
@@ -67,6 +75,7 @@ export interface Meeting {
   documentoAta?: string;
   listaPresencaUrl?: string;
   listaPresencaNome?: string;
+  fotosReuniao?: MeetingPhoto[];
 }
 
 export interface GeneralAta {
@@ -82,6 +91,7 @@ export interface GeneralAta {
   numero?: number;
   listaPresencaUrl?: string;
   listaPresencaNome?: string;
+  fotosReuniao?: MeetingPhoto[];
 }
 
 export interface Case {

@@ -1,5 +1,5 @@
 import React from "react";
-import { Case, Referral, TimelineEvent, Attachment, Organ, Meeting } from "../types";
+import { Case, Referral, TimelineEvent, Attachment, Organ, Meeting, MeetingPhoto } from "../types";
 import { ALL_ORGANS } from "../data";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -61,6 +61,7 @@ import {
   FileText,
   FileDown,
   ChevronRight,
+  ChevronLeft,
   Upload,
   Calendar,
   UserCheck,
@@ -151,9 +152,11 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [ataEditorReadOnly, setAtaEditorReadOnly] = React.useState(false);
   const [ataEditorListaUrl, setAtaEditorListaUrl] = React.useState<string | undefined>(undefined);
   const [ataEditorListaNome, setAtaEditorListaNome] = React.useState<string | undefined>(undefined);
+  const [ataEditorFotosReuniao, setAtaEditorFotosReuniao] = React.useState<MeetingPhoto[]>([]);
 
-  // Zoom Modal for Attendance Photos
+  // Zoom Modal for Attendance Photos & Meeting Photos Gallery
   const [zoomPhotoModal, setZoomPhotoModal] = React.useState<{ url: string; title: string } | null>(null);
+  const [caseGalleryModal, setCaseGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
 
   // Secrecy Overriding State
   const [isSecrecyRevealed, setIsSecrecyRevealed] = React.useState(false);
@@ -169,6 +172,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
   const [meetPresentOrgans, setMeetPresentOrgans] = React.useState<Organ[]>([activeSession.organ]);
   const [meetListaPresencaUrl, setMeetListaPresencaUrl] = React.useState<string | undefined>(undefined);
   const [meetListaPresencaNome, setMeetListaPresencaNome] = React.useState<string | undefined>(undefined);
+  const [meetFotosReuniao, setMeetFotosReuniao] = React.useState<MeetingPhoto[]>([]);
+  const [isUploadingMeetPhotos, setIsUploadingMeetPhotos] = React.useState(false);
 
   const handleMeetPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -215,6 +220,82 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     reader.readAsDataURL(file);
   };
 
+  const handleMeetPhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingMeetPhotos(true);
+    const newPhotos: MeetingPhoto[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        const compressed = await new Promise<string>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width = Math.round((width * MAX_HEIGHT) / height);
+                height = MAX_HEIGHT;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL("image/jpeg", 0.75));
+            } else {
+              resolve(base64);
+            }
+          };
+          img.onerror = () => resolve(base64);
+          img.src = base64;
+        });
+
+        newPhotos.push({
+          id: `photo-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          url: compressed,
+          nome: file.name,
+          dataUpload: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Erro ao carregar foto:", err);
+      }
+    }
+
+    setMeetFotosReuniao(prev => [...prev, ...newPhotos]);
+    setIsUploadingMeetPhotos(false);
+    if (e.target) e.target.value = "";
+  };
+
+  const handleRemoveMeetPhoto = (photoId: string) => {
+    setMeetFotosReuniao(prev => prev.filter(p => p.id !== photoId));
+  };
+
+  const handleUpdateMeetPhotoLegenda = (photoId: string, legenda: string) => {
+    setMeetFotosReuniao(prev => prev.map(p => p.id === photoId ? { ...p, legenda } : p));
+  };
+
   const handleToggleMeetOrgan = (organ: Organ) => {
     if (meetPresentOrgans.includes(organ)) {
       setMeetPresentOrgans(meetPresentOrgans.filter(o => o !== organ));
@@ -237,7 +318,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
       responsibleOrgan: meetOrgan,
       discussao: meetDiscussion,
       listaPresencaUrl: meetListaPresencaUrl,
-      listaPresencaNome: meetListaPresencaNome
+      listaPresencaNome: meetListaPresencaNome,
+      fotosReuniao: meetFotosReuniao.length > 0 ? meetFotosReuniao : undefined
     };
 
     // Auto-generate default ATA text based on the user's requested template
@@ -268,6 +350,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
     setMeetPresentOrgans([activeSession.organ]);
     setMeetListaPresencaUrl(undefined);
     setMeetListaPresencaNome(undefined);
+    setMeetFotosReuniao([]);
     setShowAddMeeting(false);
   };
 
@@ -638,6 +721,7 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
     setAtaEditorReadOnly(readOnly);
     setAtaEditorListaUrl(meeting.listaPresencaUrl);
     setAtaEditorListaNome(meeting.listaPresencaNome);
+    setAtaEditorFotosReuniao(meeting.fotosReuniao || []);
     if (meeting.documentoAta) {
       setAtaEditorMarkdown(meeting.documentoAta);
     } else {
@@ -646,7 +730,7 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
     setIsAtaEditorOpen(true);
   };
 
-  const handleSaveAtaEditor = (newMarkdown: string, listaUrl?: string, listaNome?: string) => {
+  const handleSaveAtaEditor = (newMarkdown: string, listaUrl?: string, listaNome?: string, fotos?: MeetingPhoto[]) => {
     if (!ataEditorMeetingId) return;
 
     const updatedMeetings = (caseItem.reunioes || []).map(m => {
@@ -655,7 +739,8 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
           ...m,
           documentoAta: newMarkdown,
           listaPresencaUrl: listaUrl !== undefined ? listaUrl : m.listaPresencaUrl,
-          listaPresencaNome: listaNome !== undefined ? listaNome : m.listaPresencaNome
+          listaPresencaNome: listaNome !== undefined ? listaNome : m.listaPresencaNome,
+          fotosReuniao: fotos !== undefined ? fotos : m.fotosReuniao
         };
       }
       return m;
@@ -1923,6 +2008,80 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
                       )}
                     </div>
 
+                    {/* Meeting Photos (Registro Fotográfico) Upload */}
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ImageIcon size={15} className="text-purple-600" />
+                          <span className="text-xs font-bold text-slate-700">Fotos das Reuniões (Registro Fotográfico)</span>
+                          {meetFotosReuniao.length > 0 && (
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-bold rounded-full">
+                              {meetFotosReuniao.length} {meetFotosReuniao.length === 1 ? "foto" : "fotos"}
+                            </span>
+                          )}
+                        </div>
+                        {meetFotosReuniao.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setMeetFotosReuniao([])}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 font-medium flex items-center gap-1 cursor-pointer"
+                          >
+                            <Trash2 size={12} /> Limpar todas
+                          </button>
+                        )}
+                      </div>
+
+                      {meetFotosReuniao.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {meetFotosReuniao.map((foto, fIdx) => (
+                            <div key={foto.id} className="relative group bg-white border border-slate-200 rounded-lg p-2 space-y-1.5 shadow-sm">
+                              <div className="relative aspect-video rounded overflow-hidden bg-slate-100">
+                                <img
+                                  src={foto.url}
+                                  alt={foto.legenda || `Foto ${fIdx + 1}`}
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  onClick={() => setCaseGalleryModal({ photos: meetFotosReuniao, currentIndex: fIdx, title: `Fotos da Reunião - Caso ${caseItem.name}` })}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMeetPhoto(foto.id)}
+                                  className="absolute top-1 right-1 p-1 bg-rose-600 hover:bg-rose-700 text-white rounded shadow-sm opacity-80 group-hover:opacity-100 transition-opacity"
+                                  title="Remover foto"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Legenda (ex: Sala de reunião, CRAS)..."
+                                value={foto.legenda || ""}
+                                onChange={(e) => handleUpdateMeetPhotoLegenda(foto.id, e.target.value)}
+                                className="w-full px-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded focus:bg-white focus:outline-none focus:border-purple-400"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <label className="border-2 border-dashed border-purple-200 hover:border-purple-500 hover:bg-purple-50/30 rounded-xl p-3 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all text-center">
+                        <Upload size={16} className="text-purple-500" />
+                        <span className="text-[11px] font-bold text-slate-700">
+                          {isUploadingMeetPhotos ? "Processando fotos..." : "Clique para anexar fotos da reunião (múltiplas)"}
+                        </span>
+                        <span className="text-[9px] text-slate-400">
+                          Formatos aceitos: JPG, PNG, WEBP (fotos do espaço, participantes, dinâmicas da mesa)
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          disabled={isUploadingMeetPhotos}
+                          onChange={handleMeetPhotosUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
                     <div className="flex justify-end gap-2.5">
                       <button
                         type="button"
@@ -1992,6 +2151,42 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
                         >
                           <ZoomIn size={12} />
                           <span>Visualizar Foto</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Meeting photos status banner if attached */}
+                    {m.fotosReuniao && m.fotosReuniao.length > 0 && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-purple-50/70 border border-purple-200/80 rounded-xl text-xs gap-3">
+                        <div className="flex items-center gap-2.5 text-purple-900 font-medium">
+                          <ImageIcon size={15} className="text-purple-600 shrink-0" />
+                          <div>
+                            <span>Fotos da Reunião (Registro Fotográfico): <strong>{m.fotosReuniao.length} {m.fotosReuniao.length === 1 ? "foto anexada" : "fotos anexadas"}</strong></span>
+                            <div className="flex items-center gap-1.5 mt-1.5">
+                              {m.fotosReuniao.slice(0, 5).map((f, pIdx) => (
+                                <img
+                                  key={f.id || pIdx}
+                                  src={f.url}
+                                  alt={f.legenda || `Foto ${pIdx + 1}`}
+                                  className="w-8 h-8 object-cover rounded border border-purple-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => setCaseGalleryModal({ photos: m.fotosReuniao!, currentIndex: pIdx, title: `Fotos da Reunião de ${formatDateBR(m.date)} - Caso ${caseItem.name}` })}
+                                />
+                              ))}
+                              {m.fotosReuniao.length > 5 && (
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                                  +{m.fotosReuniao.length - 5}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCaseGalleryModal({ photos: m.fotosReuniao!, currentIndex: 0, title: `Fotos da Reunião de ${formatDateBR(m.date)} - Caso ${caseItem.name}` })}
+                          className="flex items-center gap-1 font-bold text-purple-700 hover:text-purple-900 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-[11px] shadow-sm cursor-pointer shrink-0 self-start sm:self-center"
+                        >
+                          <ZoomIn size={12} />
+                          <span>Ver Galeria ({m.fotosReuniao.length})</span>
                         </button>
                       </div>
                     )}
@@ -2185,6 +2380,7 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
         title={`Ata de Reunião - Caso ${caseItem.name}`}
         listaPresencaUrl={ataEditorListaUrl}
         listaPresencaNome={ataEditorListaNome}
+        fotosReuniao={ataEditorFotosReuniao}
       />
 
       {/* Fullscreen Photo Zoom Modal */}
@@ -2207,6 +2403,74 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
                 alt="Foto Ampliada"
                 className="max-h-full max-w-full object-contain rounded shadow-lg"
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Gallery Modal for Meeting Photos */}
+      {caseGalleryModal && caseGalleryModal.photos.length > 0 && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="relative max-w-4xl w-full max-h-[90vh] bg-slate-950 rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/10">
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <ImageIcon size={16} className="text-purple-400" />
+                <span className="text-xs font-bold">{caseGalleryModal.title}</span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  ({caseGalleryModal.currentIndex + 1} de {caseGalleryModal.photos.length})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCaseGalleryModal(null)}
+                className="p-1.5 rounded-lg hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="relative flex-1 p-4 flex items-center justify-center bg-black/40 overflow-hidden min-h-[350px] max-h-[70vh]">
+              <img
+                src={caseGalleryModal.photos[caseGalleryModal.currentIndex].url}
+                alt={caseGalleryModal.photos[caseGalleryModal.currentIndex].legenda || "Foto da Reunião"}
+                className="max-h-[65vh] max-w-full object-contain rounded shadow-2xl transition-all"
+              />
+
+              {caseGalleryModal.photos.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCaseGalleryModal(prev => prev ? {
+                      ...prev,
+                      currentIndex: (prev.currentIndex - 1 + prev.photos.length) % prev.photos.length
+                    } : null)}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all border border-white/20 shadow-lg cursor-pointer"
+                    title="Foto anterior"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCaseGalleryModal(prev => prev ? {
+                      ...prev,
+                      currentIndex: (prev.currentIndex + 1) % prev.photos.length
+                    } : null)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all border border-white/20 shadow-lg cursor-pointer"
+                    title="Próxima foto"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-3 bg-slate-900 border-t border-white/10 text-white flex items-center justify-between flex-wrap gap-2 text-xs">
+              <span className="text-slate-300 font-medium">
+                {caseGalleryModal.photos[caseGalleryModal.currentIndex].legenda || "Registro fotográfico sem legenda"}
+              </span>
+              <span className="text-[10px] text-slate-400">
+                {caseGalleryModal.photos[caseGalleryModal.currentIndex].nome}
+              </span>
             </div>
           </div>
         </div>
