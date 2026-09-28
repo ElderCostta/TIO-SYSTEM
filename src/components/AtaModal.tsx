@@ -1,6 +1,7 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import { FileText, Copy, Check, X, Printer, Camera, ZoomIn } from "lucide-react";
+import { FileText, Copy, Check, X, Printer, Camera, ZoomIn, ShieldCheck } from "lucide-react";
+import { getPrintWatermarkCss, getPrintWatermarkHtml, CONSELHO_TUTELAR_DATA_URL } from "../utils/councilSeal";
 
 interface AtaModalProps {
   isOpen: boolean;
@@ -462,50 +463,24 @@ export default function AtaModal({
                 padding-top: 12px;
                 page-break-inside: avoid;
               }
+
+              ${getPrintWatermarkCss()}
             </style>
           </head>
           <body>
+            ${getPrintWatermarkHtml()}
+
             <div class="header-container">
               <div class="header-logo">
-                <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="blueGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#0056b3" />
-                      <stop offset="100%" stop-color="#0088ff" />
-                    </linearGradient>
-                    <linearGradient id="orangeGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#e65c00" />
-                      <stop offset="100%" stop-color="#ffb300" />
-                    </linearGradient>
-                  </defs>
-
-                  <!-- Left Blue Hand forming left heart lobe -->
-                  <path d="M100,165 C60,140 30,105 30,75 C30,45 60,35 85,60 C70,45 50,55 50,75 C50,95 80,135 100,155" fill="none" stroke="url(#blueGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M50,75 C50,105 78,135 95,150" fill="none" stroke="url(#blueGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M40,75 C40,95 65,122 82,138" fill="none" stroke="url(#blueGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Right Orange Hand forming right heart lobe -->
-                  <path d="M100,165 C140,140 170,105 170,75 C170,45 140,35 115,60 C130,45 150,55 150,75 C150,95 120,135 100,155" fill="none" stroke="url(#orangeGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M150,75 C150,105 122,135 105,150" fill="none" stroke="url(#orangeGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M160,75 C160,95 135,122 118,138" fill="none" stroke="url(#orangeGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Child and Teen Silhouettes in Center -->
-                  <!-- Teen (Right) -->
-                  <circle cx="116" cy="84" r="11" fill="#0056b3" />
-                  <path d="M116,97 C104,97 100,107 100,117 C100,121 106,132 116,132 C126,132 132,121 132,117 C132,107 128,97 116,97 Z" fill="#0056b3" />
-
-                  <!-- Child (Left) -->
-                  <circle cx="88" cy="94" r="8" fill="#0056b3" />
-                  <path d="M88,104 C78,104 75,112 75,120 C75,123 80,132 88,132 C96,132 101,123 101,120 C101,112 98,104 88,104 Z" fill="#0056b3" />
-                </svg>
+                <img src="${CONSELHO_TUTELAR_DATA_URL}" alt="Logomarca do Conselho Tutelar" style="width: 86px; height: 86px; object-fit: contain;" />
               </div>
-              <div class="header-text" style="margin-top: 10px;">
-                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 700; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
-                  Grupo de Integração Operacional de Direitos da Criança e do Adolescente
+              <div class="header-text" style="margin-top: 8px;">
+                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 800; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
+                  Conselho Tutelar dos Direitos da Criança e do Adolescente
                 </div>
-                <div style="width: 120px; height: 3px; background: linear-gradient(to right, #0056b3, #ffb300); margin: 6px auto;"></div>
-                <div class="gov-subtitle" style="font-size: 13px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
-                  Currais Novos - RN <span style="color: #cbd5e1; margin: 0 6px;">|</span> <span style="color: #e65c00;">Grupo TIO</span>
+                <div style="width: 130px; height: 3px; background: linear-gradient(to right, #0056b3, #00a859, #fbb034); margin: 6px auto;"></div>
+                <div class="gov-subtitle" style="font-size: 12px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
+                  Grupo de Integração Operacional (TIO) <span style="color: #cbd5e1; margin: 0 6px;">|</span> Currais Novos - RN
                 </div>
               </div>
             </div>
@@ -635,9 +610,34 @@ export default function AtaModal({
               Nenhuma ata gerada ou conteúdo vazio.
             </div>
           ) : (
-            <div className="prose prose-indigo max-w-none text-gray-800 space-y-6">
+            <div className="prose prose-indigo max-w-none text-gray-800 space-y-6 relative overflow-hidden p-6 bg-slate-50/40 rounded-2xl border border-slate-200/80">
+              {/* Selo Transparente do Conselho Tutelar no modelo de página de ata */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0" aria-hidden="true">
+                <img
+                  src={CONSELHO_TUTELAR_DATA_URL}
+                  alt="Selo Transparente Conselho Tutelar"
+                  className="w-[380px] h-[380px] object-contain opacity-[0.065] select-none filter grayscale-[10%]"
+                />
+              </div>
+
+              {/* Header Badge */}
+              <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-200 text-[10px]">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <img src={CONSELHO_TUTELAR_DATA_URL} alt="Logo" className="w-5 h-5 object-contain" />
+                  <span className="font-extrabold text-slate-800 tracking-wide uppercase">Conselho Tutelar</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                    <ShieldCheck size={11} className="text-emerald-600" />
+                    Selo Transparente Oficial Ativo
+                  </span>
+                </div>
+                <span className="font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                  Padrão A4 • Registro Oficial
+                </span>
+              </div>
+
               {/* Wraps react-markdown inside a div styled for markdown rendering */}
-              <div className="markdown-body select-text text-sm leading-relaxed space-y-4">
+              <div className="relative z-10 markdown-body select-text text-sm leading-relaxed space-y-4">
                 <ReactMarkdown>{markdown}</ReactMarkdown>
               </div>
 

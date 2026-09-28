@@ -16,9 +16,17 @@ import {
   ZoomIn, 
   ImageIcon,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Undo2,
+  Wand2,
+  CheckCircle2,
+  ShieldCheck,
+  FileCheck
 } from "lucide-react";
 import { MeetingPhoto } from "../types";
+import { correctPortugueseText, correctAtaWithAI, CorrectionFix } from "../utils/textCorrector";
+import { getPrintWatermarkCss, getPrintWatermarkHtml, CONSELHO_TUTELAR_DATA_URL } from "../utils/councilSeal";
 
 interface AtaEditorModalProps {
   isOpen: boolean;
@@ -52,6 +60,78 @@ export default function AtaEditorModal({
   const [isUploadingPhotos, setIsUploadingPhotos] = React.useState(false);
   const [zoomModalOpen, setZoomModalOpen] = React.useState(false);
   const [galleryModal, setGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
+
+  // Automatic Text Corrector States
+  const [markdownHistory, setMarkdownHistory] = React.useState<string[]>([]);
+  const [isCorrectingWithAI, setIsCorrectingWithAI] = React.useState(false);
+  const [appliedFixes, setAppliedFixes] = React.useState<CorrectionFix[]>([]);
+  const [showFixesModal, setShowFixesModal] = React.useState(false);
+  const [correctorToast, setCorrectorToast] = React.useState<string | null>(null);
+  const [autoCorrectOnBlur, setAutoCorrectOnBlur] = React.useState(false);
+
+  // Quick feedback toast
+  const showToast = (msg: string) => {
+    setCorrectorToast(msg);
+    setTimeout(() => {
+      setCorrectorToast(null);
+    }, 3500);
+  };
+
+  // Run Portuguese spelling and grammar rules corrector
+  const handleRunCorrector = () => {
+    const { correctedText, fixes, totalFixes } = correctPortugueseText(markdown);
+    if (totalFixes === 0) {
+      showToast("Texto verificado: nenhuma inconformidade ortográfica encontrada!");
+      return;
+    }
+
+    setMarkdownHistory(prev => [...prev, markdown]);
+    setMarkdown(correctedText);
+    setAppliedFixes(fixes);
+    showToast(`${totalFixes} correção(ões) ortográfica(s) e de pontuação aplicada(s)!`);
+  };
+
+  // Run AI-assisted proofreading and administrative enhancement
+  const handleRunAICorrector = async () => {
+    setIsCorrectingWithAI(true);
+    try {
+      const { correctedText, fixes, totalFixes } = await correctAtaWithAI(markdown);
+      if (correctedText && correctedText !== markdown) {
+        setMarkdownHistory(prev => [...prev, markdown]);
+        setMarkdown(correctedText);
+        setAppliedFixes(fixes);
+        showToast(`Texto aprimorado com sucesso (${totalFixes} ajuste(s))!`);
+      } else {
+        showToast("O texto já está gramaticalmente correto e em conformidade oficial.");
+      }
+    } catch (e) {
+      // Fallback
+      handleRunCorrector();
+    } finally {
+      setIsCorrectingWithAI(false);
+    }
+  };
+
+  // Undo last correction
+  const handleUndoCorrection = () => {
+    if (markdownHistory.length === 0) return;
+    const previous = markdownHistory[markdownHistory.length - 1];
+    setMarkdownHistory(prev => prev.slice(0, prev.length - 1));
+    setMarkdown(previous);
+    setAppliedFixes([]);
+    showToast("Correção desfeita. Texto anterior restaurado.");
+  };
+
+  // Auto-correct on blur when enabled
+  const handleEditorBlur = () => {
+    if (!autoCorrectOnBlur) return;
+    const { correctedText, totalFixes } = correctPortugueseText(markdown);
+    if (totalFixes > 0 && correctedText !== markdown) {
+      setMarkdownHistory(prev => [...prev, markdown]);
+      setMarkdown(correctedText);
+      showToast(`${totalFixes} ajuste(s) automático(s) aplicado(s) ao sair do campo.`);
+    }
+  };
 
   // Sync markdown with initialMarkdown when modal opens
   React.useEffect(() => {
@@ -677,50 +757,24 @@ export default function AtaEditorModal({
                 padding-top: 12px;
                 page-break-inside: avoid;
               }
+
+              ${getPrintWatermarkCss()}
             </style>
           </head>
           <body>
+            ${getPrintWatermarkHtml()}
+
             <div class="header-container">
               <div class="header-logo">
-                <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="blueGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#0056b3" />
-                      <stop offset="100%" stop-color="#0088ff" />
-                    </linearGradient>
-                    <linearGradient id="orangeGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#e65c00" />
-                      <stop offset="100%" stop-color="#ffb300" />
-                    </linearGradient>
-                  </defs>
-
-                  <!-- Left Blue Hand forming left heart lobe -->
-                  <path d="M100,165 C60,140 30,105 30,75 C30,45 60,35 85,60 C70,45 50,55 50,75 C50,95 80,135 100,155" fill="none" stroke="url(#blueGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M50,75 C50,105 78,135 95,150" fill="none" stroke="url(#blueGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M40,75 C40,95 65,122 82,138" fill="none" stroke="url(#blueGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Right Orange Hand forming right heart lobe -->
-                  <path d="M100,165 C140,140 170,105 170,75 C170,45 140,35 115,60 C130,45 150,55 150,75 C150,95 120,135 100,155" fill="none" stroke="url(#orangeGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M150,75 C150,105 122,135 105,150" fill="none" stroke="url(#orangeGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M160,75 C160,95 135,122 118,138" fill="none" stroke="url(#orangeGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Child and Teen Silhouettes in Center -->
-                  <!-- Teen (Right) -->
-                  <circle cx="116" cy="84" r="11" fill="#0056b3" />
-                  <path d="M116,97 C104,97 100,107 100,117 C100,121 106,132 116,132 C126,132 132,121 132,117 C132,107 128,97 116,97 Z" fill="#0056b3" />
-
-                  <!-- Child (Left) -->
-                  <circle cx="88" cy="94" r="8" fill="#0056b3" />
-                  <path d="M88,104 C78,104 75,112 75,120 C75,123 80,132 88,132 C96,132 101,123 101,120 C101,112 98,104 88,104 Z" fill="#0056b3" />
-                </svg>
+                <img src="${CONSELHO_TUTELAR_DATA_URL}" alt="Logomarca do Conselho Tutelar" style="width: 86px; height: 86px; object-fit: contain;" />
               </div>
-              <div class="header-text" style="margin-top: 10px;">
-                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 700; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
-                  Grupo de Integração Operacional de Direitos da Criança e do Adolescente
+              <div class="header-text" style="margin-top: 8px;">
+                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 800; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
+                  Conselho Tutelar dos Direitos da Criança e do Adolescente
                 </div>
-                <div style="width: 120px; height: 3px; background: linear-gradient(to right, #0056b3, #ffb300); margin: 6px auto;"></div>
-                <div class="gov-subtitle" style="font-size: 13px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
-                  Currais Novos - RN <span style="color: #cbd5e1; margin: 0 6px;">|</span> <span style="color: #e65c00;">Grupo TIO</span>
+                <div style="width: 130px; height: 3px; background: linear-gradient(to right, #0056b3, #00a859, #fbb034); margin: 6px auto;"></div>
+                <div class="gov-subtitle" style="font-size: 12px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
+                  Grupo de Integração Operacional (TIO) <span style="color: #cbd5e1; margin: 0 6px;">|</span> Currais Novos - RN
                 </div>
               </div>
             </div>
@@ -895,14 +949,108 @@ export default function AtaEditorModal({
         <div className="flex-1 overflow-y-auto p-6 font-sans bg-slate-50/30 space-y-4">
           {activeTab === "edit" && !readOnly ? (
             <div className="flex flex-col space-y-4">
+              {/* Corrector Toast Notification */}
+              {correctorToast && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={15} className="text-emerald-600 shrink-0" />
+                    <span>{correctorToast}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCorrectorToast(null)}
+                    className="p-1 text-emerald-600 hover:text-emerald-800 rounded"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                  Editor de Texto em Markdown (Edite livremente as lacunas):
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                      Editor de Texto em Markdown (Preencha e edite livremente):
+                    </label>
+                  </div>
+
+                  {/* Corretor Automático Toolbar */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {markdownHistory.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleUndoCorrection}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all shadow-xs cursor-pointer"
+                        title="Desfazer última correção automática"
+                      >
+                        <Undo2 size={12} />
+                        <span>Desfazer</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleRunCorrector}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      title="Corrigir ortografia, acentuação e pontuação imediatamente"
+                      id="btn-corretor-automatico"
+                    >
+                      <Sparkles size={13} className="text-emerald-600" />
+                      <span>Corretor Automático</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isCorrectingWithAI}
+                      onClick={handleRunAICorrector}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      title="Revisão inteligente de concordância jurídica e gramatical da ata"
+                      id="btn-revisar-ia"
+                    >
+                      {isCorrectingWithAI ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Revisando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 size={13} className="text-indigo-600" />
+                          <span>Revisar com IA</span>
+                        </>
+                      )}
+                    </button>
+
+                    {appliedFixes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowFixesModal(true)}
+                        className="text-[11px] text-emerald-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer bg-emerald-50/60 px-2 py-0.5 rounded border border-emerald-100"
+                        title="Clique para ver os termos que foram corrigidos"
+                      >
+                        <CheckCircle2 size={12} />
+                        <span>{appliedFixes.reduce((s, f) => s + f.count, 0)} correções</span>
+                      </button>
+                    )}
+
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500 font-medium cursor-pointer ml-1 select-none">
+                      <input
+                        type="checkbox"
+                        checked={autoCorrectOnBlur}
+                        onChange={(e) => setAutoCorrectOnBlur(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer"
+                      />
+                      <span>Auto-corrigir ao sair</span>
+                    </label>
+                  </div>
+                </div>
+
                 <textarea
                   value={markdown}
                   onChange={(e) => setMarkdown(e.target.value)}
-                  className="w-full min-h-[36vh] p-4 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
+                  onBlur={handleEditorBlur}
+                  spellCheck={true}
+                  lang="pt-BR"
+                  className="w-full min-h-[38vh] p-4 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
                   placeholder="Insira o texto da ata..."
                   id="ata-markdown-editor-textarea"
                 />
@@ -1079,8 +1227,33 @@ export default function AtaEditorModal({
               </div>
             </div>
           ) : (
-            <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6">
-              <div className="prose prose-indigo max-w-none text-slate-800">
+            <div className="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm space-y-6 relative overflow-hidden" id="ata-preview-sheet">
+              {/* Selo Transparente do Conselho Tutelar no modelo de página de ata */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0" aria-hidden="true">
+                <img
+                  src={CONSELHO_TUTELAR_DATA_URL}
+                  alt="Selo Transparente Conselho Tutelar"
+                  className="w-[430px] h-[430px] object-contain opacity-[0.07] select-none filter grayscale-[10%]"
+                />
+              </div>
+
+              {/* Header Badge */}
+              <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-100 text-[10px]">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <img src={CONSELHO_TUTELAR_DATA_URL} alt="Logo" className="w-5 h-5 object-contain" />
+                  <span className="font-extrabold text-slate-800 tracking-wide uppercase">Conselho Tutelar</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                    <ShieldCheck size={11} className="text-emerald-600" />
+                    Selo Transparente Oficial Ativo
+                  </span>
+                </div>
+                <span className="font-mono text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
+                  Padrão A4 • Registro Oficial
+                </span>
+              </div>
+
+              <div className="relative z-10 prose prose-indigo max-w-none text-slate-800">
                 <div className="markdown-body select-text text-sm leading-relaxed space-y-4">
                   <ReactMarkdown>{markdown}</ReactMarkdown>
                 </div>
@@ -1389,6 +1562,62 @@ export default function AtaEditorModal({
                   Concluir
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Detalhes das Correções Aplicadas */}
+      {showFixesModal && appliedFixes.length > 0 && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <Sparkles size={17} className="text-emerald-600" />
+                <span>Correções Ortográficas e Gramaticais</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFixesModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Foram aplicadas as seguintes adequações de ortografia, acentuação e padronização oficial no texto da ata:
+            </p>
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {appliedFixes.map((f, i) => (
+                <div key={i} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                  <div className="flex items-center justify-between font-mono">
+                    <span className="text-rose-600 line-through">{f.original}</span>
+                    <span className="text-slate-400 font-sans text-[10px]">➔</span>
+                    <span className="text-emerald-700 font-bold">{f.replacement}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {f.explanation} {f.count > 1 ? `(${f.count} ocorrência(s))` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  handleUndoCorrection();
+                  setShowFixesModal(false);
+                }}
+                className="text-xs text-slate-500 hover:text-rose-600 font-semibold cursor-pointer"
+              >
+                Desfazer estas alterações
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFixesModal(false)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Concluir
+              </button>
             </div>
           </div>
         </div>

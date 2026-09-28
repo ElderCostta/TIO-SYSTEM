@@ -211,6 +211,78 @@ Retorne APENAS o conteúdo em Markdown, pronto para visualização, sem blocos d
   }
 });
 
+// Endpoint to automatically proofread, correct spelling/grammar, and enhance ATA Markdown text
+app.post("/api/gemini/correct-ata-text", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== "string") {
+      return res.status(400).json({ error: "O texto da ata é obrigatório para correção." });
+    }
+
+    const ai = getGeminiClient();
+
+    const prompt = `Você é um especialista em língua portuguesa e redação de atas oficiais do Conselho Tutelar e da Rede de Proteção da Criança e do Adolescente (ECA).
+Analise o texto da ata abaixo (escrito em Markdown).
+Corrija rigorosamente:
+1. Erros de ortografia, acentuação (á, é, í, ó, ú, â, ê, ô, ã, õ, ç), concordância verbal e nominal.
+2. Pontuação e espaçamentos (espaços duplos, pontuação sem espaço depois ou com espaço antes).
+3. Padronização de termos jurídicos e administrativos (ex: "Conselho Tutelar", "ECA", "CRAS", "CREAS", "Ministério Público", "Art. 136", "deliberação", "intersetorial").
+4. PRESERVE estritamente toda a formatação em Markdown (títulos com #, listas com -, tabelas com |, separadores ---, etc.) e mantenha todos os nomes próprios, datas e dados essenciais intactos.
+
+Texto original:
+${text}
+
+Retorne um objeto JSON contendo:
+{
+  "correctedText": "o texto completo corrigido e revisado em Markdown",
+  "summary": "resumo das melhorias realizadas em 1 frase",
+  "fixes": [
+    {
+      "original": "termo original",
+      "replacement": "termo corrigido",
+      "explanation": "motivo da correção"
+    }
+  ]
+}`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            correctedText: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            fixes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  original: { type: Type.STRING },
+                  replacement: { type: Type.STRING },
+                  explanation: { type: Type.STRING }
+                },
+                required: ["original", "replacement", "explanation"]
+              }
+            }
+          },
+          required: ["correctedText", "summary", "fixes"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.error("Erro na correção inteligente da ata:", error);
+    res.status(500).json({
+      error: error.message || "Erro ao corrigir texto com IA."
+    });
+  }
+});
+
 // Real-time synchronization Firestore database integration
 let serverGeneralAtas: any[] = [...DEFAULT_GENERAL_ATAS];
 let serverCases: any[] = [...INITIAL_CASES];

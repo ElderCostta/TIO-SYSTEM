@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+  <defs>
+    <!-- Soft shadow / glow filter -->
+    <filter id="softGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background is transparent -->
+
+  <g transform="translate(0, -10)">
+    <!-- Light blue halo behind top umbrella dome -->
+    <ellipse cx="250" cy="115" rx="85" ry="32" fill="#dbeafe" opacity="0.85" />
+    <path d="M 195 125 C 190 90, 310 90, 305 125 Z" fill="#bfdbfe" opacity="0.6" />
+
+    <!-- Top Blue Umbrella / Dome -->
+    <!-- Curved umbrella top and organic bottom rim -->
+    <path d="M 155 135 C 155 75, 345 75, 345 135 C 345 160, 320 168, 250 168 C 180 168, 155 160, 155 135 Z" fill="#0055b8" />
+    
+    <!-- Central Green Figure (Adult/Protector) -->
+    <!-- Head -->
+    <circle cx="250" cy="195" r="22" fill="#00a859" />
+    <!-- Body / Torso -->
+    <line x1="250" y1="217" x2="250" y2="305" stroke="#00a859" stroke-width="15" stroke-linecap="round" />
+    <!-- Skirt / Dress shape at bottom of green figure -->
+    <polygon points="238,290 262,290 268,320 232,320" fill="#00a859" />
+    
+    <!-- Left Hand / Arm of Green Figure holding Red Child -->
+    <path d="M 250 240 C 220 220, 195 240, 195 260" fill="none" stroke="#00a859" stroke-width="13" stroke-linecap="round" />
+    <!-- Right Hand / Arm of Green Figure holding Yellow Child -->
+    <path d="M 250 240 C 280 220, 305 240, 305 260" fill="none" stroke="#00a859" stroke-width="13" stroke-linecap="round" />
+
+    <!-- Left Child Figure (Red) -->
+    <!-- Head -->
+    <circle cx="172" cy="242" r="18" fill="#e52320" />
+    <!-- Body -->
+    <line x1="172" y1="260" x2="178" y2="310" stroke="#e52320" stroke-width="11" stroke-linecap="round" />
+    <polygon points="168,300 188,300 192,325 164,325" fill="#e52320" />
+    <!-- Raised Left Arm -->
+    <path d="M 172 272 L 132 295" stroke="#e52320" stroke-width="10" stroke-linecap="round" />
+    <!-- Right Arm holding hands with Green figure -->
+    <path d="M 172 272 L 196 260" stroke="#e52320" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Right Child Figure (Yellow/Gold) -->
+    <!-- Head -->
+    <circle cx="328" cy="235" r="18" fill="#fbb034" />
+    <!-- Body -->
+    <line x1="328" y1="253" x2="328" y2="305" stroke="#fbb034" stroke-width="11" stroke-linecap="round" />
+    <polygon points="318,295 338,295 348,325 316,325" fill="#fbb034" />
+    <!-- Outstretched Right Arm -->
+    <path d="M 328 265 L 362 268" stroke="#fbb034" stroke-width="10" stroke-linecap="round" />
+    <!-- Left Arm holding hands with Green figure -->
+    <path d="M 328 265 L 304 260" stroke="#fbb034" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Bottom Blue Cradle / Boat Shape -->
+    <path d="M 160 325 C 150 355, 185 390, 250 395 C 315 390, 350 355, 340 325 C 320 338, 280 345, 250 345 C 220 345, 180 338, 160 325 Z" fill="#0055b8" />
+  </g>
+
+  <!-- Typography: CONSELHO TUTELAR -->
+  <text x="250" y="440" 
+        font-family="system-ui, -apple-system, sans-serif, Arial" 
+        font-size="34" 
+        font-weight="900" 
+        letter-spacing="2.5" 
+        fill="#0055b8" 
+        text-anchor="middle">
+    CONSELHO
+  </text>
+  <text x="250" y="480" 
+        font-family="system-ui, -apple-system, sans-serif, Arial" 
+        font-size="34" 
+        font-weight="900" 
+        letter-spacing="2.5" 
+        fill="#0055b8" 
+        text-anchor="middle">
+    TUTELAR
+  </text>
+</svg>

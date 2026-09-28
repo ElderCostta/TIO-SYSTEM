@@ -28,7 +28,10 @@ import {
   Maximize2,
   ZoomIn,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wand2,
+  CheckCircle2,
+  ShieldCheck
 } from "lucide-react";
 import { GeneralAta, MeetingPhoto, UserSession } from "../types";
 import { DEFAULT_GENERAL_ATAS } from "../data";
@@ -38,6 +41,8 @@ import {
   getLocalTodayISO, 
   formatDateTimeBR 
 } from "../utils/dateUtils";
+import { correctPortugueseText, correctAtaWithAI, CorrectionFix } from "../utils/textCorrector";
+import { getPrintWatermarkCss, getPrintWatermarkHtml, CONSELHO_TUTELAR_DATA_URL } from "../utils/councilSeal";
 
 import { 
   collection, 
@@ -186,6 +191,71 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [activeTab, setActiveTab] = React.useState<"form" | "markdown">("form");
   const [editorMarkdown, setEditorMarkdown] = React.useState("");
   const [copied, setCopied] = React.useState(false);
+
+  // Automatic Text Corrector state for RegistroAtas Markdown Box
+  const [editorHistory, setEditorHistory] = React.useState<string[]>([]);
+  const [isCorrectingEditorAI, setIsCorrectingEditorAI] = React.useState(false);
+  const [editorAppliedFixes, setEditorAppliedFixes] = React.useState<CorrectionFix[]>([]);
+  const [editorCorrectorToast, setEditorCorrectorToast] = React.useState<string | null>(null);
+  const [editorAutoCorrectOnBlur, setEditorAutoCorrectOnBlur] = React.useState(false);
+  const [showEditorFixesModal, setShowEditorFixesModal] = React.useState(false);
+
+  const showEditorToast = (msg: string) => {
+    setEditorCorrectorToast(msg);
+    setTimeout(() => {
+      setEditorCorrectorToast(null);
+    }, 3500);
+  };
+
+  const handleRunEditorCorrector = () => {
+    const { correctedText, fixes, totalFixes } = correctPortugueseText(editorMarkdown);
+    if (totalFixes === 0) {
+      showEditorToast("Texto em conformidade ortográfica: nenhum erro encontrado!");
+      return;
+    }
+    setEditorHistory(prev => [...prev, editorMarkdown]);
+    setEditorMarkdown(correctedText);
+    setEditorAppliedFixes(fixes);
+    showEditorToast(`${totalFixes} correção(ões) ortográfica(s) aplicada(s) com sucesso!`);
+  };
+
+  const handleRunEditorAICorrector = async () => {
+    setIsCorrectingEditorAI(true);
+    try {
+      const { correctedText, fixes, totalFixes } = await correctAtaWithAI(editorMarkdown);
+      if (correctedText && correctedText !== editorMarkdown) {
+        setEditorHistory(prev => [...prev, editorMarkdown]);
+        setEditorMarkdown(correctedText);
+        setEditorAppliedFixes(fixes);
+        showEditorToast(`Texto aprimorado com inteligência jurídica e ortográfica (${totalFixes} ajuste(s))!`);
+      } else {
+        showEditorToast("O texto já está gramaticalmente correto e em conformidade oficial.");
+      }
+    } catch {
+      handleRunEditorCorrector();
+    } finally {
+      setIsCorrectingEditorAI(false);
+    }
+  };
+
+  const handleUndoEditorCorrection = () => {
+    if (editorHistory.length === 0) return;
+    const prev = editorHistory[editorHistory.length - 1];
+    setEditorHistory(h => h.slice(0, h.length - 1));
+    setEditorMarkdown(prev);
+    setEditorAppliedFixes([]);
+    showEditorToast("Correção desfeita. Texto anterior restaurado.");
+  };
+
+  const handleEditorBlurAction = () => {
+    if (!editorAutoCorrectOnBlur) return;
+    const { correctedText, totalFixes } = correctPortugueseText(editorMarkdown);
+    if (totalFixes > 0 && correctedText !== editorMarkdown) {
+      setEditorHistory(prev => [...prev, editorMarkdown]);
+      setEditorMarkdown(correctedText);
+      showEditorToast(`${totalFixes} ajuste(s) automático(s) aplicado(s) ao sair do campo.`);
+    }
+  };
 
   // Form Fields State (to help user pre-fill the template easily)
   const [formDate, setFormDate] = React.useState(getLocalTodayISO());
@@ -1437,50 +1507,24 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                 margin-top: 4px;
                 letter-spacing: 0.5px;
               }
+
+              ${getPrintWatermarkCss()}
             </style>
           </head>
           <body>
+            ${getPrintWatermarkHtml()}
+
             <div class="header-container">
               <div class="header-logo">
-                <svg width="100" height="100" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="blueGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#0056b3" />
-                      <stop offset="100%" stop-color="#0088ff" />
-                    </linearGradient>
-                    <linearGradient id="orangeGrad" x1="0" y1="1" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#e65c00" />
-                      <stop offset="100%" stop-color="#ffb300" />
-                    </linearGradient>
-                  </defs>
-
-                  <!-- Left Blue Hand forming left heart lobe -->
-                  <path d="M100,165 C60,140 30,105 30,75 C30,45 60,35 85,60 C70,45 50,55 50,75 C50,95 80,135 100,155" fill="none" stroke="url(#blueGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M50,75 C50,105 78,135 95,150" fill="none" stroke="url(#blueGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M40,75 C40,95 65,122 82,138" fill="none" stroke="url(#blueGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Right Orange Hand forming right heart lobe -->
-                  <path d="M100,165 C140,140 170,105 170,75 C170,45 140,35 115,60 C130,45 150,55 150,75 C150,95 120,135 100,155" fill="none" stroke="url(#orangeGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M150,75 C150,105 122,135 105,150" fill="none" stroke="url(#orangeGrad)" stroke-width="6" stroke-linecap="round" />
-                  <path d="M160,75 C160,95 135,122 118,138" fill="none" stroke="url(#orangeGrad)" stroke-width="4" stroke-linecap="round" />
-
-                  <!-- Child and Teen Silhouettes in Center -->
-                  <!-- Teen (Right) -->
-                  <circle cx="116" cy="84" r="11" fill="#0056b3" />
-                  <path d="M116,97 C104,97 100,107 100,117 C100,121 106,132 116,132 C126,132 132,121 132,117 C132,107 128,97 116,97 Z" fill="#0056b3" />
-
-                  <!-- Child (Left) -->
-                  <circle cx="88" cy="94" r="8" fill="#0056b3" />
-                  <path d="M88,104 C78,104 75,112 75,120 C75,123 80,132 88,132 C96,132 101,123 101,120 C101,112 98,104 88,104 Z" fill="#0056b3" />
-                </svg>
+                <img src="${CONSELHO_TUTELAR_DATA_URL}" alt="Logomarca do Conselho Tutelar" style="width: 86px; height: 86px; object-fit: contain;" />
               </div>
-              <div class="header-text" style="margin-top: 10px;">
-                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 700; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
-                  Grupo de Integração Operacional de Direitos da Criança e do Adolescente
+              <div class="header-text" style="margin-top: 8px;">
+                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 800; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
+                  Conselho Tutelar dos Direitos da Criança e do Adolescente
                 </div>
-                <div style="width: 120px; height: 3px; background: linear-gradient(to right, #0056b3, #ffb300); margin: 6px auto;"></div>
-                <div class="gov-subtitle" style="font-size: 13px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
-                  Currais Novos - RN <span style="color: #cbd5e1; margin: 0 6px;">|</span> <span style="color: #e65c00;">Grupo TIO</span>
+                <div style="width: 130px; height: 3px; background: linear-gradient(to right, #0056b3, #00a859, #fbb034); margin: 6px auto;"></div>
+                <div class="gov-subtitle" style="font-size: 12px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
+                  Grupo de Integração Operacional (TIO) <span style="color: #cbd5e1; margin: 0 6px;">|</span> Currais Novos - RN
                 </div>
               </div>
             </div>
@@ -2137,44 +2181,134 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               </div>
             ) : (
               <div className="flex-1 flex flex-col space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                {/* Corrector Toast Notification */}
+                {editorCorrectorToast && (
+                  <div className="flex items-center justify-between px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                      <span>{editorCorrectorToast}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditorCorrectorToast(null)}
+                      className="p-1 text-emerald-600 hover:text-emerald-800 rounded"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
                     Editor Markdown (Alteração direta do Documento):
                   </label>
-                  <button
-                    onClick={() => {
-                      if (confirm("Deseja redefinir todo o conteúdo para o modelo padrão com as lacunas? Isso apagará as edições atuais feitas neste campo de texto.")) {
-                        setEditorMarkdown(generateGlobalAtaTemplate({
-                          date: formDate,
-                          time: formTime,
-                          location: formLocation,
-                          coordinator: formCoordinator,
-                          objective: formObjective,
-                          participants: {
-                            conselhoTutelar: ctPart,
-                            educacao: educPart,
-                            assistenciaSocial: asPart,
-                            saude: saudePart,
-                            policia: polPart,
-                            outros: outrosPart
-                          },
-                          pauta: formPauta,
-                          discussao: formDiscussao,
-                          encaminhamentos: formEncaminhamentos,
-                          consideracoes: formConsideracoes,
-                          encerradoAs: formEncerradoAs,
-                          secretario: formSecretario
-                        }));
-                      }
-                    }}
-                    className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer uppercase font-mono"
-                  >
-                    Restaurar Modelo
-                  </button>
+
+                  {/* Corretor Automático Toolbar */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {editorHistory.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleUndoEditorCorrection}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all shadow-xs cursor-pointer"
+                        title="Desfazer última correção automática"
+                      >
+                        <Undo2 size={12} />
+                        <span>Desfazer</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleRunEditorCorrector}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      title="Corrigir ortografia, acentuação e pontuação imediatamente"
+                      id="btn-corretor-editor-atas"
+                    >
+                      <Sparkles size={13} className="text-emerald-600" />
+                      <span>Corretor Automático</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isCorrectingEditorAI}
+                      onClick={handleRunEditorAICorrector}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      title="Revisão inteligente de concordância jurídica e gramatical da ata"
+                      id="btn-revisar-ia-atas"
+                    >
+                      {isCorrectingEditorAI ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                          <span>Revisando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 size={13} className="text-indigo-600" />
+                          <span>Revisar com IA</span>
+                        </>
+                      )}
+                    </button>
+
+                    {editorAppliedFixes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowEditorFixesModal(true)}
+                        className="text-[11px] text-emerald-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer bg-emerald-50/60 px-2 py-0.5 rounded border border-emerald-100"
+                      >
+                        <CheckCircle2 size={12} />
+                        <span>{editorAppliedFixes.reduce((s, f) => s + f.count, 0)} correções</span>
+                      </button>
+                    )}
+
+                    <label className="flex items-center gap-1 text-[10px] text-slate-500 font-medium cursor-pointer ml-1 select-none">
+                      <input
+                        type="checkbox"
+                        checked={editorAutoCorrectOnBlur}
+                        onChange={(e) => setEditorAutoCorrectOnBlur(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-0 cursor-pointer"
+                      />
+                      <span>Auto-corrigir ao sair</span>
+                    </label>
+
+                    <button
+                      onClick={() => {
+                        if (confirm("Deseja redefinir todo o conteúdo para o modelo padrão com as lacunas? Isso apagará as edições atuais feitas neste campo de texto.")) {
+                          setEditorMarkdown(generateGlobalAtaTemplate({
+                            date: formDate,
+                            time: formTime,
+                            location: formLocation,
+                            coordinator: formCoordinator,
+                            objective: formObjective,
+                            participants: {
+                              conselhoTutelar: ctPart,
+                              educacao: educPart,
+                              assistenciaSocial: asPart,
+                              saude: saudePart,
+                              policia: polPart,
+                              outros: outrosPart
+                            },
+                            pauta: formPauta,
+                            discussao: formDiscussao,
+                            encaminhamentos: formEncaminhamentos,
+                            consideracoes: formConsideracoes,
+                            encerradoAs: formEncerradoAs,
+                            secretario: formSecretario
+                          }));
+                        }
+                      }}
+                      className="text-[9px] font-extrabold text-indigo-600 hover:underline cursor-pointer uppercase font-mono ml-1"
+                    >
+                      Restaurar
+                    </button>
+                  </div>
                 </div>
+
                 <textarea
                   value={editorMarkdown}
                   onChange={(e) => setEditorMarkdown(e.target.value)}
+                  onBlur={handleEditorBlurAction}
+                  spellCheck={true}
+                  lang="pt-BR"
                   className="w-full min-h-[42vh] flex-1 p-4 bg-slate-50 border border-slate-200 focus:border-indigo-500 rounded-2xl text-xs font-mono focus:outline-none transition-all resize-none leading-relaxed"
                   placeholder="Insira e modifique a ata em Markdown livre..."
                 />
@@ -2388,8 +2522,31 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
             </div>
 
             {/* Markdown paper box */}
-            <div className="flex-1 overflow-y-auto max-h-[70vh] bg-slate-50/50 p-6 rounded-2xl border border-slate-200/60 shadow-inner prose prose-indigo max-w-none text-slate-800 text-xs">
-              <div className="markdown-body select-text space-y-3 leading-relaxed">
+            <div className="flex-1 overflow-y-auto max-h-[70vh] bg-slate-50/50 p-6 rounded-2xl border border-slate-200/60 shadow-inner prose prose-indigo max-w-none text-slate-800 text-xs relative overflow-hidden">
+              {/* Selo Transparente do Conselho Tutelar */}
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0" aria-hidden="true">
+                <img
+                  src={CONSELHO_TUTELAR_DATA_URL}
+                  alt="Selo Transparente Conselho Tutelar"
+                  className="w-[360px] h-[360px] object-contain opacity-[0.065] select-none filter grayscale-[10%]"
+                />
+              </div>
+
+              {/* Watermark badge header */}
+              <div className="relative z-10 flex items-center justify-between pb-2.5 mb-3 border-b border-slate-200/80 text-[10px]">
+                <div className="flex items-center gap-1.5 text-slate-700 font-bold">
+                  <img src={CONSELHO_TUTELAR_DATA_URL} alt="Logo" className="w-4 h-4 object-contain" />
+                  <span className="uppercase tracking-wider">Conselho Tutelar</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold flex items-center gap-1">
+                    <ShieldCheck size={11} className="text-emerald-600" />
+                    Selo Transparente Ativo
+                  </span>
+                </div>
+                <span className="text-slate-400 font-mono">Padrão Oficial</span>
+              </div>
+
+              <div className="relative z-10 markdown-body select-text space-y-3 leading-relaxed">
                 <ReactMarkdown>{editorMarkdown}</ReactMarkdown>
               </div>
 
@@ -2858,6 +3015,63 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                   Concluir
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes das Correções Aplicadas no Editor de Atas */}
+      {showEditorFixesModal && editorAppliedFixes.length > 0 && (
+        <div className="fixed inset-0 z-80 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <Sparkles size={17} className="text-emerald-600" />
+                <span>Correções Ortográficas e Gramaticais</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditorFixesModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Foram aplicadas as seguintes adequações de ortografia, acentuação e padronização oficial no texto da ata:
+            </p>
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {editorAppliedFixes.map((f, i) => (
+                <div key={i} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                  <div className="flex items-center justify-between font-mono">
+                    <span className="text-rose-600 line-through">{f.original}</span>
+                    <span className="text-slate-400 font-sans text-[10px]">➔</span>
+                    <span className="text-emerald-700 font-bold">{f.replacement}</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {f.explanation} {f.count > 1 ? `(${f.count} ocorrência(s))` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  handleUndoEditorCorrection();
+                  setShowEditorFixesModal(false);
+                }}
+                className="text-xs text-slate-500 hover:text-rose-600 font-semibold cursor-pointer"
+              >
+                Desfazer estas alterações
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEditorFixesModal(false)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Concluir
+              </button>
             </div>
           </div>
         </div>
