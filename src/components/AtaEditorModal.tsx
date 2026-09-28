@@ -82,8 +82,8 @@ export default function AtaEditorModal({
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1600;
-        const MAX_HEIGHT = 1600;
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -104,7 +104,7 @@ export default function AtaEditorModal({
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          const compressed = canvas.toDataURL("image/jpeg", 0.70);
           setCurrentListaUrl(compressed);
           setCurrentListaNome(file.name);
         } else {
@@ -133,8 +133,8 @@ export default function AtaEditorModal({
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
+          const MAX_WIDTH = 850;
+          const MAX_HEIGHT = 850;
           let width = img.width;
           let height = img.height;
 
@@ -155,7 +155,7 @@ export default function AtaEditorModal({
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height);
-            const compressed = canvas.toDataURL("image/jpeg", 0.75);
+            const compressed = canvas.toDataURL("image/jpeg", 0.65);
             newPhotos.push({
               id: `foto-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
               url: compressed,

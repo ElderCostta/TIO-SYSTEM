@@ -214,104 +214,20 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   const [listaPresencaNome, setListaPresencaNome] = React.useState<string | undefined>(undefined);
   const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
   const [previewImageModal, setPreviewImageModal] = React.useState<{ url: string; title: string } | null>(null);
+  const [directUploadingId, setDirectUploadingId] = React.useState<string | null>(null);
 
-  // Compress & read photo of attendance list
-  const handleAttendancePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPhoto(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const maxDim = 1400;
-          let width = img.width;
-          let height = img.height;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.80);
-            setListaPresencaUrl(dataUrl);
-            setListaPresencaNome(file.name);
-            if (selectedAta) {
-              setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: dataUrl, listaPresencaNome: file.name } : null);
-            }
-          } else {
-            const rawUrl = event.target?.result as string;
-            setListaPresencaUrl(rawUrl);
-            setListaPresencaNome(file.name);
-            if (selectedAta) {
-              setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: rawUrl, listaPresencaNome: file.name } : null);
-            }
-          }
-        } catch (procErr) {
-          console.error("Erro ao comprimir imagem:", procErr);
-          const rawUrl = event.target?.result as string;
-          setListaPresencaUrl(rawUrl);
-          setListaPresencaNome(file.name);
-        } finally {
-          setIsUploadingPhoto(false);
-        }
-      };
-      img.onerror = () => {
-        setIsUploadingPhoto(false);
-        alert("Não foi possível carregar a imagem selecionada. Tente outro formato.");
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = () => {
-      setIsUploadingPhoto(false);
-      alert("Erro ao ler o arquivo de imagem.");
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveAttendancePhoto = () => {
-    setListaPresencaUrl(undefined);
-    setListaPresencaNome(undefined);
-    if (selectedAta) {
-      setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: undefined, listaPresencaNome: undefined } : null);
-    }
-  };
-
-  // Meeting Photos Attachment State
-  const [fotosReuniao, setFotosReuniao] = React.useState<MeetingPhoto[]>([]);
-  const [isUploadingMeetingPhotos, setIsUploadingMeetingPhotos] = React.useState(false);
-  const [galleryModal, setGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
-
-  // Compress & read meeting photos
-  const handleMeetingPhotosUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setIsUploadingMeetingPhotos(true);
-    const fileList = Array.from(files);
-    let completedCount = 0;
-    const newPhotos: MeetingPhoto[] = [];
-
-    fileList.forEach((file, index) => {
+  // High-performance canvas-based client image compression
+  const compressImageFile = (
+    file: File, 
+    maxDim: number = 1200, 
+    quality: number = 0.70
+  ): Promise<{ dataUrl: string; name: string }> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const img = new Image();
         img.onload = () => {
           try {
-            const maxDim = 1200;
             let width = img.width;
             let height = img.height;
             if (width > maxDim || height > maxDim) {
@@ -331,63 +247,202 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
               ctx.fillStyle = "#ffffff";
               ctx.fillRect(0, 0, width, height);
               ctx.drawImage(img, 0, 0, width, height);
-              const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
-              newPhotos.push({
-                id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-                url: dataUrl,
-                nome: file.name,
-                legenda: "",
-                dataUpload: new Date().toISOString()
-              });
+              const dataUrl = canvas.toDataURL("image/jpeg", quality);
+              resolve({ dataUrl, name: file.name });
             } else {
-              const rawUrl = event.target?.result as string;
-              newPhotos.push({
-                id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-                url: rawUrl,
-                nome: file.name,
-                legenda: "",
-                dataUpload: new Date().toISOString()
-              });
+              resolve({ dataUrl: event.target?.result as string, name: file.name });
             }
-          } catch (err) {
-            const rawUrl = event.target?.result as string;
-            newPhotos.push({
-              id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
-              url: rawUrl,
-              nome: file.name,
-              legenda: "",
-              dataUpload: new Date().toISOString()
-            });
-          } finally {
-            completedCount++;
-            if (completedCount === fileList.length) {
-              setIsUploadingMeetingPhotos(false);
-              setFotosReuniao(prev => {
-                const merged = [...prev, ...newPhotos];
-                if (selectedAta) {
-                  setSelectedAta(curr => curr ? { ...curr, fotosReuniao: merged } : null);
-                }
-                return merged;
-              });
-            }
+          } catch {
+            resolve({ dataUrl: event.target?.result as string, name: file.name });
           }
         };
-        img.onerror = () => {
-          completedCount++;
-          if (completedCount === fileList.length) {
-            setIsUploadingMeetingPhotos(false);
-          }
-        };
+        img.onerror = () => resolve({ dataUrl: event.target?.result as string, name: file.name });
         img.src = event.target?.result as string;
       };
-      reader.onerror = () => {
-        completedCount++;
-        if (completedCount === fileList.length) {
-          setIsUploadingMeetingPhotos(false);
-        }
-      };
+      reader.onerror = () => resolve({ dataUrl: "", name: file.name });
       reader.readAsDataURL(file);
     });
+  };
+
+  const compressBase64Url = (
+    b64: string,
+    maxDim: number = 850,
+    quality: number = 0.65
+  ): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!b64 || !b64.startsWith("data:image")) return resolve(b64);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", quality);
+            resolve(compressed.length < b64.length ? compressed : b64);
+          } else {
+            resolve(b64);
+          }
+        } catch {
+          resolve(b64);
+        }
+      };
+      img.onerror = () => resolve(b64);
+      img.src = b64;
+    });
+  };
+
+  const ensureClientSafeAta = async (ata: GeneralAta): Promise<GeneralAta> => {
+    const jsonStr = JSON.stringify(ata);
+    // If comfortably safe (< 600KB), return as-is
+    if (jsonStr.length < 600000) return ata;
+
+    const clone: GeneralAta = { ...ata };
+
+    // Recompress meeting photos if any are large
+    if (clone.fotosReuniao && clone.fotosReuniao.length > 0) {
+      const optFotos: MeetingPhoto[] = [];
+      for (const f of clone.fotosReuniao) {
+        if (f.url && f.url.length > 50000) {
+          const optUrl = await compressBase64Url(f.url, 800, 0.60);
+          optFotos.push({ ...f, url: optUrl });
+        } else {
+          optFotos.push(f);
+        }
+      }
+      clone.fotosReuniao = optFotos;
+    }
+
+    // Recompress attendance list if large
+    if (clone.listaPresencaUrl && clone.listaPresencaUrl.length > 100000) {
+      clone.listaPresencaUrl = await compressBase64Url(clone.listaPresencaUrl, 1100, 0.68);
+    }
+
+    return clone;
+  };
+
+  // Compress & read photo of attendance list
+  const handleAttendancePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      // 1200px at 0.70 gives crisp handwriting/signatures at ~60-80KB
+      const { dataUrl, name } = await compressImageFile(file, 1200, 0.70);
+      setListaPresencaUrl(dataUrl);
+      setListaPresencaNome(name);
+      if (selectedAta) {
+        setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: dataUrl, listaPresencaNome: name } : null);
+      }
+    } catch (procErr) {
+      console.error("Erro ao comprimir imagem da lista de presença:", procErr);
+      alert("Não foi possível processar a imagem selecionada. Tente outro formato.");
+    } finally {
+      setIsUploadingPhoto(false);
+      e.target.value = "";
+    }
+  };
+
+  // Direct upload from the Ata Card in the list view
+  const handleDirectAttendanceUpload = async (targetAta: GeneralAta, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setDirectUploadingId(targetAta.id);
+    try {
+      const { dataUrl, name } = await compressImageFile(file, 1200, 0.70);
+      const updatedAta: GeneralAta = {
+        ...targetAta,
+        listaPresencaUrl: dataUrl,
+        listaPresencaNome: name
+      };
+
+      const updatedList = atas.map(a => a.id === targetAta.id ? updatedAta : a);
+      await saveAtas(updatedList, { type: "save", payload: updatedAta });
+    } catch (err) {
+      console.error("Erro ao anexar lista de presença diretamente:", err);
+      alert("Não foi possível salvar o anexo da lista de presença.");
+    } finally {
+      setDirectUploadingId(null);
+      e.target.value = "";
+    }
+  };
+
+  // Direct removal of attendance list from card
+  const handleDirectRemoveAttendance = async (targetAta: GeneralAta) => {
+    if (!confirm("Deseja remover o anexo da lista de presença desta ata?")) return;
+    const updatedAta: GeneralAta = {
+      ...targetAta,
+      listaPresencaUrl: undefined,
+      listaPresencaNome: undefined
+    };
+    const updatedList = atas.map(a => a.id === targetAta.id ? updatedAta : a);
+    await saveAtas(updatedList, { type: "save", payload: updatedAta });
+  };
+
+  const handleRemoveAttendancePhoto = () => {
+    setListaPresencaUrl(undefined);
+    setListaPresencaNome(undefined);
+    if (selectedAta) {
+      setSelectedAta(prev => prev ? { ...prev, listaPresencaUrl: undefined, listaPresencaNome: undefined } : null);
+    }
+  };
+
+  // Meeting Photos Attachment State
+  const [fotosReuniao, setFotosReuniao] = React.useState<MeetingPhoto[]>([]);
+  const [isUploadingMeetingPhotos, setIsUploadingMeetingPhotos] = React.useState(false);
+  const [galleryModal, setGalleryModal] = React.useState<{ photos: MeetingPhoto[]; currentIndex: number; title: string } | null>(null);
+
+  // Compress & read meeting photos
+  const handleMeetingPhotosUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingMeetingPhotos(true);
+    const fileList = Array.from(files);
+    const newPhotos: MeetingPhoto[] = [];
+
+    for (let index = 0; index < fileList.length; index++) {
+      const file = fileList[index];
+      try {
+        // 850px at 0.65 gives high-quality display and prints at only ~35KB per photo
+        const { dataUrl } = await compressImageFile(file, 850, 0.65);
+        newPhotos.push({
+          id: `foto-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
+          url: dataUrl,
+          nome: file.name,
+          legenda: "",
+          dataUpload: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("Erro ao comprimir foto da reunião:", err);
+      }
+    }
+
+    setFotosReuniao(prev => {
+      const merged = [...prev, ...newPhotos];
+      if (selectedAta) {
+        setSelectedAta(curr => curr ? { ...curr, fotosReuniao: merged } : null);
+      }
+      return merged;
+    });
+    setIsUploadingMeetingPhotos(false);
     e.target.value = "";
   };
 
@@ -527,11 +582,24 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
         }
       } else {
         if (isMounted) {
-          setAtas(sorted);
+          setAtas(prev => {
+            // merge so that if an ata in prev has a locally attached listaPresencaUrl that the server snapshot hasn't synced yet, preserve it
+            return sorted.map(remoteAta => {
+              const localMatch = prev.find(p => p.id === remoteAta.id);
+              if (localMatch?.listaPresencaUrl && !remoteAta.listaPresencaUrl) {
+                return {
+                  ...remoteAta,
+                  listaPresencaUrl: localMatch.listaPresencaUrl,
+                  listaPresencaNome: localMatch.listaPresencaNome
+                };
+              }
+              return remoteAta;
+            });
+          });
           try {
             localStorage.setItem("tio_system_general_atas", JSON.stringify(sorted));
           } catch (lsErr) {
-            console.warn("Storage warning:", lsErr);
+            console.warn("Storage warning (localStorage limit):", lsErr);
           }
         }
       }
@@ -546,18 +614,27 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
   }, [activeSession.username]);
 
   const saveAtas = async (updatedList: GeneralAta[], action?: { type: "save" | "delete"; payload: any }) => {
-    // Update local state and localStorage for optimistic UI response
+    // Update local state for optimistic UI response
     setAtas(updatedList);
     try {
       localStorage.setItem("tio_system_general_atas", JSON.stringify(updatedList));
     } catch (lsErr) {
-      console.warn("Storage warning:", lsErr);
+      console.warn("Storage warning (localStorage limit):", lsErr);
+      try {
+        const lightweight = updatedList.map(a => ({
+          ...a,
+          listaPresencaUrl: a.listaPresencaUrl ? a.listaPresencaUrl.slice(0, 100) + "...cached" : undefined
+        }));
+        localStorage.setItem("tio_system_general_atas", JSON.stringify(lightweight));
+      } catch (_) {}
     }
 
     if (action) {
       if (action.type === "save") {
-        const ata = action.payload;
-        // Server sync API call first to ensure persistence
+        // Ensure payload is defensively compressed so it NEVER exceeds Firestore 1MB limit
+        const ata = await ensureClientSafeAta(action.payload);
+
+        // Server sync API call to ensure multi-client persistence
         fetch("/api/sync/atas/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2507,16 +2584,57 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                     {/* Quick actions row */}
                     <div className="flex flex-wrap items-center justify-between gap-2 mt-5 pt-4 border-t border-slate-100">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {a.listaPresencaUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImageModal({ url: a.listaPresencaUrl!, title: `Lista de Presença - ${a.numero ? `Ata ${a.numero}` : 'Ata'}` })}
-                            className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                            title="Visualizar foto da lista de presença assinada"
+                        {directUploadingId === a.id ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-bold">
+                            <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Anexando lista...</span>
+                          </div>
+                        ) : a.listaPresencaUrl ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageModal({ url: a.listaPresencaUrl!, title: `Lista de Presença - ${a.numero ? `Ata ${a.numero}` : 'Ata'}` })}
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer shadow-xs"
+                              title="Visualizar foto da lista de presença assinada"
+                            >
+                              <Camera size={12} />
+                              <span>Lista Anexa</span>
+                            </button>
+                            <label 
+                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all cursor-pointer"
+                              title="Substituir fotografia da lista de presença"
+                            >
+                              <Edit3 size={11} />
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={(e) => handleDirectAttendanceUpload(a, e)} 
+                                className="hidden" 
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDirectRemoveAttendance(a)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                              title="Remover anexo da lista de presença"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        ) : (
+                          <label 
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-lg text-[10px] font-bold transition-all cursor-pointer shadow-xs"
+                            title="Anexar foto da lista de presença assinada diretamente nesta ata"
                           >
                             <Camera size={12} />
-                            <span>Lista Anexa</span>
-                          </button>
+                            <span>+ Anexar Lista</span>
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              onChange={(e) => handleDirectAttendanceUpload(a, e)} 
+                              className="hidden" 
+                            />
+                          </label>
                         )}
 
                         {a.fotosReuniao && a.fotosReuniao.length > 0 && (
@@ -2529,10 +2647,6 @@ export default function RegistroAtas({ activeSession, realTimeSync }: RegistroAt
                             <ImageIcon size={12} />
                             <span>{a.fotosReuniao.length} {a.fotosReuniao.length === 1 ? "Foto" : "Fotos"}</span>
                           </button>
-                        )}
-
-                        {!a.listaPresencaUrl && (!a.fotosReuniao || a.fotosReuniao.length === 0) && (
-                          <span className="text-[10px] text-slate-400 italic">Sem anexos digitais</span>
                         )}
                       </div>
 

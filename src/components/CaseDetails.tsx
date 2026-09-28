@@ -185,8 +185,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1600;
-        const MAX_HEIGHT = 1600;
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -207,7 +207,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          const compressed = canvas.toDataURL("image/jpeg", 0.70);
           setMeetListaPresencaUrl(compressed);
           setMeetListaPresencaNome(file.name);
         } else {
@@ -241,8 +241,8 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement("canvas");
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
+            const MAX_WIDTH = 850;
+            const MAX_HEIGHT = 850;
             let width = img.width;
             let height = img.height;
 
@@ -263,7 +263,7 @@ export default function CaseDetails({ caseItem, activeSession, onBack, onUpdateC
             const ctx = canvas.getContext("2d");
             if (ctx) {
               ctx.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL("image/jpeg", 0.75));
+              resolve(canvas.toDataURL("image/jpeg", 0.65));
             } else {
               resolve(base64);
             }
@@ -738,9 +738,9 @@ Nada mais havendo a tratar, a reunião foi encerrada às ________, sendo lavrada
         return {
           ...m,
           documentoAta: newMarkdown,
-          listaPresencaUrl: listaUrl !== undefined ? listaUrl : m.listaPresencaUrl,
-          listaPresencaNome: listaNome !== undefined ? listaNome : m.listaPresencaNome,
-          fotosReuniao: fotos !== undefined ? fotos : m.fotosReuniao
+          listaPresencaUrl: listaUrl,
+          listaPresencaNome: listaNome,
+          fotosReuniao: fotos || []
         };
       }
       return m;

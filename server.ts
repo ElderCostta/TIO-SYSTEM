@@ -6,6 +6,7 @@ import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, writeBatch, 
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { INITIAL_CASES, DEFAULT_GENERAL_ATAS } from "./src/data";
+import sharp from "sharp";
 
 const app = express();
 const PORT = 3000;
@@ -402,23 +403,93 @@ function cleanUndefinedFields(obj: any): any {
   return clean;
 }
 
-async function saveAtaToFirestore(ata: any): Promise<void> {
-  const existingIndex = serverGeneralAtas.findIndex(a => a.id === ata.id);
+async function optimizeBase64Image(b64: string, maxDim: number, quality: number): Promise<string> {
+  if (!b64 || typeof b64 !== "string" || !b64.startsWith("data:image")) return b64;
+  const match = b64.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!match) return b64;
+  try {
+    const rawBuf = Buffer.from(match[2], "base64");
+    if (rawBuf.length < 40000) return b64; // already very lightweight
+    const resized = await sharp(rawBuf)
+      .resize(maxDim, maxDim, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+    return "data:image/jpeg;base64," + resized.toString("base64");
+  } catch (err) {
+    console.error("Erro ao otimizar imagem no servidor:", err);
+    return b64;
+  }
+}
+
+async function ensureAtaFitsFirestore(ata: any): Promise<any> {
+  if (!ata || typeof ata !== "object") return ata;
+  const clone = { ...ata };
+  const str = JSON.stringify(clone);
+  const totalBytes = Buffer.byteLength(str, "utf8");
+
+  // If size is comfortably safe (< 600KB), return as is
+  if (totalBytes < 600000) return clone;
+
+  console.log(`[Sync] Otimizando ata ${clone.id} (tamanho atual: ${(totalBytes / 1024).toFixed(1)} KB) para Firestore...`);
+
+  // Optimize meeting photos (max 850px, quality 65)
+  if (Array.isArray(clone.fotosReuniao)) {
+    const optFotos = [];
+    for (const f of clone.fotosReuniao) {
+      if (f && f.url && f.url.length > 50000) {
+        const optUrl = await optimizeBase64Image(f.url, 850, 65);
+        optFotos.push({ ...f, url: optUrl });
+      } else {
+        optFotos.push(f);
+      }
+    }
+    clone.fotosReuniao = optFotos;
+  }
+
+  // Optimize attendance list if needed (max 1200px, quality 70)
+  if (clone.listaPresencaUrl && clone.listaPresencaUrl.length > 100000) {
+    clone.listaPresencaUrl = await optimizeBase64Image(clone.listaPresencaUrl, 1200, 70);
+  }
+
+  const finalBytes = Buffer.byteLength(JSON.stringify(clone), "utf8");
+  console.log(`[Sync] Ata ${clone.id} otimizada com sucesso: ${(totalBytes / 1024).toFixed(1)} KB -> ${(finalBytes / 1024).toFixed(1)} KB`);
+  return clone;
+}
+
+async function saveAtaToFirestore(ata: any): Promise<any> {
+  const preparedAta = await ensureAtaFitsFirestore(cleanUndefinedFields(ata));
+
+  const existingIndex = serverGeneralAtas.findIndex(a => a.id === preparedAta.id);
   if (existingIndex !== -1) {
-    serverGeneralAtas[existingIndex] = ata;
+    serverGeneralAtas[existingIndex] = preparedAta;
   } else {
-    serverGeneralAtas = [ata, ...serverGeneralAtas];
+    serverGeneralAtas = [preparedAta, ...serverGeneralAtas];
   }
 
   const firestore = getFirestoreDb();
-  if (!firestore) return;
+  if (!firestore) return preparedAta;
   try {
-    const cleanedAta = cleanUndefinedFields(ata);
-    await setDoc(doc(firestore, "atas", ata.id), cleanedAta, { merge: true });
-    console.log(`Ata ${ata.id} salva com sucesso no Firestore.`);
-  } catch (error) {
-    console.error(`Erro ao salvar ata ${ata.id} no Firestore:`, error);
+    await setDoc(doc(firestore, "atas", preparedAta.id), preparedAta, { merge: true });
+    console.log(`Ata ${preparedAta.id} salva com sucesso no Firestore (tamanho: ${(Buffer.byteLength(JSON.stringify(preparedAta))/1024).toFixed(1)} KB).`);
+  } catch (error: any) {
+    console.error(`Erro ao salvar ata ${preparedAta.id} no Firestore:`, error?.message || error);
+    // Emergency second-pass compression if still rejected
+    try {
+      if (Array.isArray(preparedAta.fotosReuniao)) {
+        for (const f of preparedAta.fotosReuniao) {
+          if (f && f.url) f.url = await optimizeBase64Image(f.url, 700, 55);
+        }
+      }
+      if (preparedAta.listaPresencaUrl) {
+        preparedAta.listaPresencaUrl = await optimizeBase64Image(preparedAta.listaPresencaUrl, 1000, 65);
+      }
+      await setDoc(doc(firestore, "atas", preparedAta.id), preparedAta, { merge: true });
+      console.log(`Ata ${preparedAta.id} salva no Firestore em segunda tentativa de compressão.`);
+    } catch (retryErr) {
+      console.error(`Falha definitiva ao salvar ata ${preparedAta.id}:`, retryErr);
+    }
   }
+  return preparedAta;
 }
 
 async function deleteAtaFromFirestore(id: string): Promise<void> {
@@ -494,10 +565,11 @@ app.post("/api/sync/atas", async (req, res) => {
 // Endpoint to save or update a single general minute (ata)
 app.post("/api/sync/atas/save", async (req, res) => {
   const { ata } = req.body;
+  let savedAta = null;
   if (ata && typeof ata === "object" && ata.id) {
-    await saveAtaToFirestore(ata);
+    savedAta = await saveAtaToFirestore(ata);
   }
-  res.json({ success: true, atas: serverGeneralAtas });
+  res.json({ success: true, savedAta, atas: serverGeneralAtas });
 });
 
 // Endpoint to delete a single general minute (ata)
