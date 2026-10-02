@@ -1,7 +1,13 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import { FileText, Copy, Check, X, Printer, Camera, ZoomIn, ShieldCheck } from "lucide-react";
-import { getPrintWatermarkCss, getPrintWatermarkHtml, CONSELHO_TUTELAR_DATA_URL } from "../utils/councilSeal";
+import { 
+  getPrintWatermarkCss, 
+  getPrintWatermarkHtml, 
+  getAtaHeaderHtml,
+  CONSELHO_TUTELAR_DATA_URL 
+} from "../utils/councilSeal";
+import AtaHeaderBanner from "./AtaHeaderBanner";
 
 interface AtaModalProps {
   isOpen: boolean;
@@ -470,20 +476,7 @@ export default function AtaModal({
           <body>
             ${getPrintWatermarkHtml()}
 
-            <div class="header-container">
-              <div class="header-logo">
-                <img src="${CONSELHO_TUTELAR_DATA_URL}" alt="Logomarca do Conselho Tutelar" style="width: 86px; height: 86px; object-fit: contain;" />
-              </div>
-              <div class="header-text" style="margin-top: 8px;">
-                <div class="gov-title" style="color: #0c4a80; font-size: 19px; font-weight: 800; text-transform: none; margin: 0 0 4px 0; font-family: 'Inter', sans-serif;">
-                  Conselho Tutelar dos Direitos da Criança e do Adolescente
-                </div>
-                <div style="width: 130px; height: 3px; background: linear-gradient(to right, #0056b3, #00a859, #fbb034); margin: 6px auto;"></div>
-                <div class="gov-subtitle" style="font-size: 12px; font-weight: 700; color: #0056b3; letter-spacing: 0.5px; font-family: 'Inter', sans-serif; text-transform: uppercase; margin-top: 6px;">
-                  Grupo de Integração Operacional (TIO) <span style="color: #cbd5e1; margin: 0 6px;">|</span> Currais Novos - RN
-                </div>
-              </div>
-            </div>
+            ${getAtaHeaderHtml()}
 
             <div class="document-content">
               ${compileMarkdownToPrintHtml(markdown)}
@@ -623,8 +616,8 @@ export default function AtaModal({
               {/* Header Badge */}
               <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-200 text-[10px]">
                 <div className="flex items-center gap-2 text-slate-700">
-                  <img src={CONSELHO_TUTELAR_DATA_URL} alt="Logo" className="w-5 h-5 object-contain" />
-                  <span className="font-extrabold text-slate-800 tracking-wide uppercase">Conselho Tutelar</span>
+                  <img src={CONSELHO_TUTELAR_DATA_URL} alt="Logo" className="w-5 h-5 object-contain rounded-full" />
+                  <span className="font-extrabold text-slate-800 tracking-wide uppercase">Grupo TIO</span>
                   <span className="text-slate-300">•</span>
                   <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
                     <ShieldCheck size={11} className="text-emerald-600" />
@@ -635,6 +628,9 @@ export default function AtaModal({
                   Padrão A4 • Registro Oficial
                 </span>
               </div>
+
+              {/* Cabeçalho Oficial da Ata com a Logomarca Anexada */}
+              <AtaHeaderBanner className="relative z-10" />
 
               {/* Wraps react-markdown inside a div styled for markdown rendering */}
               <div className="relative z-10 markdown-body select-text text-sm leading-relaxed space-y-4">
