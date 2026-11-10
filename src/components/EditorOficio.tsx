@@ -46,15 +46,19 @@ export default function EditorOficio({
   activeSession,
   cases = []
 }: EditorOficioProps) {
-  // Lista de ofícios
+  // Lista de ofícios salvos (inicia vazio sem rascunho de exemplo)
   const [oficios, setOficios] = useState<Oficio[]>(() => {
     try {
       const saved = localStorage.getItem("tiosystem_oficios");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: Oficio[] = JSON.parse(saved);
+        // Remove qualquer rascunho de exemplo antigo que possa ter ficado no cache
+        return parsed.filter(o => o.id !== "oficio-ct-110-2026");
+      }
     } catch (e) {
       console.warn("Erro ao carregar ofícios locais:", e);
     }
-    return [MODELO_OFICIAL_ANEXO];
+    return [];
   });
 
   // Filtros
@@ -84,7 +88,12 @@ export default function EditorOficio({
           if (!snapshot.empty) {
             const remoteDocs: Oficio[] = [];
             snapshot.forEach((d) => {
-              remoteDocs.push(d.data() as Oficio);
+              if (d.id === "oficio-ct-110-2026") {
+                // Remove rascunho de exemplo caso ainda persista
+                deleteFromFirestore("oficio-ct-110-2026");
+              } else {
+                remoteDocs.push(d.data() as Oficio);
+              }
             });
             // Ordenar por data ou número
             remoteDocs.sort((a, b) => (b.dataEmissao || "").localeCompare(a.dataEmissao || ""));
@@ -92,8 +101,8 @@ export default function EditorOficio({
             localStorage.setItem("tiosystem_oficios", JSON.stringify(remoteDocs));
             setFirestoreSyncStatus("conectado");
           } else {
-            // Se coleção no Firestore estiver vazia, semeia com o modelo do anexo
-            saveToFirestore(MODELO_OFICIAL_ANEXO);
+            setOficios([]);
+            localStorage.setItem("tiosystem_oficios", JSON.stringify([]));
             setFirestoreSyncStatus("conectado");
           }
         },
