@@ -8,5 +8,8 @@ service cloud.firestore {
     match /cases/{id} {
       allow read, write: if true;
     }
+    match /oficios/{id} {
+      allow read, write: if true;
+    }
   }
 }

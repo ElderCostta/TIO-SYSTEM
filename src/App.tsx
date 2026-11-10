@@ -7,6 +7,7 @@ import Login from "./components/Login";
 import CaseForm from "./components/CaseForm";
 import CaseDetails from "./components/CaseDetails";
 import RegistroAtas from "./components/RegistroAtas";
+import EditorOficio from "./components/EditorOficio";
 import PrivacyText from "./components/PrivacyText";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -519,7 +520,8 @@ export default function App() {
             { id: "dashboard", label: "Painel Geral", action: () => { setActiveTab("dashboard"); setSelectedCaseId(null); }, isActive: activeTab === "dashboard" && !selectedCaseId },
             { id: "casos", label: "Casos da Rede", action: () => { setActiveTab("casos"); }, isActive: activeTab === "casos" || selectedCaseId !== null },
             { id: "nova-reuniao", label: "Registrar Reunião / Caso", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" },
-            { id: "registro-atas", label: "Registro de Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" }
+            { id: "registro-atas", label: "Registro de Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" },
+            { id: "editor-oficio", label: "Editor de Ofício", action: () => { setActiveTab("editor-oficio"); setSelectedCaseId(null); }, isActive: activeTab === "editor-oficio" }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -683,7 +685,8 @@ export default function App() {
           { id: "dashboard", label: "Painel", action: () => { setActiveTab("dashboard"); setSelectedCaseId(null); }, isActive: activeTab === "dashboard" && !selectedCaseId },
           { id: "casos", label: "Casos", action: () => { setActiveTab("casos"); }, isActive: activeTab === "casos" || selectedCaseId !== null },
           { id: "nova-reuniao", label: "Reunião", action: () => { setActiveTab("nova-reuniao"); setSelectedCaseId(null); }, isActive: activeTab === "nova-reuniao" },
-          { id: "registro-atas", label: "Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" }
+          { id: "registro-atas", label: "Atas", action: () => { setActiveTab("registro-atas"); setSelectedCaseId(null); }, isActive: activeTab === "registro-atas" },
+          { id: "editor-oficio", label: "Ofícios", action: () => { setActiveTab("editor-oficio"); setSelectedCaseId(null); }, isActive: activeTab === "editor-oficio" }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -1049,6 +1052,20 @@ export default function App() {
                 <RegistroAtas
                   activeSession={session}
                   realTimeSync={realTimeSync}
+                />
+              </motion.div>
+            ) : activeTab === "editor-oficio" ? (
+              <motion.div
+                key="editor-oficio"
+                variants={pageFlipVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                style={{ backfaceVisibility: "hidden" }}
+              >
+                <EditorOficio
+                  activeSession={session}
+                  cases={cases}
                 />
               </motion.div>
             ) : null}

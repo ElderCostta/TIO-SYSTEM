@@ -126,3 +126,67 @@ export interface Case {
     dataCriacao: string;
   }>;
 }
+
+export interface OficioCounselor {
+  id: string;
+  nome: string; // Ex: "Conselheiro(a) Tutelar" ou nome próprio
+  cargo: string; // Ex: "Conselheiro(a) Tutelar"
+  matricula?: string;
+  linhaAssinatura: boolean;
+}
+
+export interface OficioAnexo {
+  id: string;
+  nome: string;
+  descricao?: string;
+  url: string; // data URL ou link
+  tipo: "documento" | "relatorio" | "laudo" | "foto" | "outro";
+  dataUpload: string;
+}
+
+export interface Oficio {
+  id: string;
+  numero: string; // Ex: "110"
+  ano: string; // Ex: "2026"
+  numeroFormatado: string; // Ex: "Ofício CT Nº 110/2026"
+  dataEmissao: string; // Ex: "2026-10-19"
+  cidade: string; // Ex: "Currais Novos"
+  uf: string; // Ex: "RN"
+
+  // 3. Identificação do destinatário, cargo e endereço
+  tratamentoDestinatario: string; // Ex: "A Excelentíssima Sra."
+  nomeDestinatario: string; // Ex: "Bela Fladja Raiane Soares de Souza."
+  cargoDestinatario: string; // Ex: "2ª Promotora de Justiça da Comarca de Currais Novos"
+  enderecoDestinatario: string; // Ex: "Rua: Zuza Othon nº 1150, Valfredo Galvão- Currais Novos/RN"
+
+  // 4. Assunto e número de procedimento
+  assunto: string; // Ex: "Informações referente ao procedimento"
+  numeroProcedimento?: string; // Ex: "33.23.2001.0000093/2026-23"
+
+  // 5. Saudação formal
+  saudacao: string; // Ex: "Excelentíssima Senhora"
+
+  // 6. Texto dividido em parágrafos
+  paragrafos: string[];
+
+  // 7. Encerramento formal
+  encerramento: string; // Ex: "Sendo o que havia a informar no momento, colocamo-nos à disposição para os esclarecimentos que se fizerem necessários."
+  fecho: string; // Ex: "Atenciosamente,"
+
+  // 8. Assinaturas dos conselheiros tutelares
+  conselheiros: OficioCounselor[];
+  dataEncerramento?: string; // Ex: "Currais Novos, 19 de outubro de 2026"
+
+  // Anexos digitalizados
+  anexos?: OficioAnexo[];
+
+  // Metadados do sistema
+  status: "Rascunho" | "Emitido" | "Protocolado" | "Arquivado";
+  casoVinculadoId?: string;
+  casoNome?: string;
+  dataCriacao: string;
+  atualizadoEm?: string;
+  criadoPor: string;
+  orgaoEmissor: string;
+  notasInternas?: string;
+}
